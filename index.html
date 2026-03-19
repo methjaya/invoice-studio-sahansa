@@ -1,0 +1,887 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Studio Sahansa — Invoice Manager</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#0d0d14;--surface:#161622;--surface2:#1e1e2e;--surface3:#252538;
+  --border:#2a2a40;--gold:#c9a84c;--gold-l:#e0c070;--gold-dim:rgba(201,168,76,0.13);
+  --text:#e2ddd5;--muted:#8888a0;--dim:#55556a;
+  --green:#52b788;--red:#e05c6a;--sidebar:230px;--r:10px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;}
+::-webkit-scrollbar{width:5px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+#setup-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;}
+#setup-screen.hidden{display:none;}
+.setup-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:38px;width:100%;max-width:490px;}
+.setup-logo{font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:var(--gold);margin-bottom:4px;}
+.setup-sub{font-size:0.8rem;color:var(--muted);margin-bottom:26px;}
+.setup-step{display:flex;gap:11px;margin-bottom:13px;padding:13px 15px;border-radius:9px;background:var(--surface2);border:1px solid var(--border);}
+.step-num{width:22px;height:22px;border-radius:50%;background:var(--gold-dim);color:var(--gold);font-size:0.72rem;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.step-txt{font-size:0.81rem;color:var(--muted);line-height:1.6;}
+.step-txt strong{color:var(--text);}
+.step-txt a{color:var(--gold);text-decoration:none;}
+hr.div{border:none;border-top:1px solid var(--border);margin:20px 0;}
+.setup-err{background:rgba(224,92,106,.1);border:1px solid rgba(224,92,106,.25);border-radius:8px;padding:10px 14px;font-size:0.8rem;color:var(--red);margin-bottom:14px;display:none;}
+#loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:99;flex-direction:column;gap:12px;}
+#loading-screen.hidden{display:none;}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+.loading-txt{font-size:0.82rem;color:var(--muted);}
+.app{display:flex;min-height:100vh;}
+.sidebar{width:var(--sidebar);background:var(--surface);border-right:1px solid var(--border);position:fixed;top:0;left:0;bottom:0;display:flex;flex-direction:column;z-index:10;}
+.main{margin-left:var(--sidebar);flex:1;padding:36px;min-height:100vh;}
+@media(max-width:700px){
+  .sidebar{width:100%;height:56px;bottom:auto;flex-direction:row;align-items:center;border-right:none;border-bottom:1px solid var(--border);}
+  .sidebar-logo{padding:0 16px;border:none;white-space:nowrap;}
+  .logo-mark{font-size:1rem;}.logo-sub{display:none;}
+  .sidebar-nav{display:flex;flex-direction:row;padding:0 8px;overflow-x:auto;flex:1;gap:2px;}
+  .nav-sec{display:none;}.nav-item{padding:8px 10px;font-size:0.78rem;gap:5px;white-space:nowrap;}
+  .nav-item svg{width:13px;height:13px;}
+  .sidebar-foot{display:none;}
+  .main{margin-left:0;margin-top:56px;padding:16px;}
+  .stats{grid-template-columns:1fr 1fr!important;}
+  .fr.c2,.fr.c3{grid-template-columns:1fr!important;}
+  .inv-layout{grid-template-columns:1fr!important;}
+  .cols6{grid-template-columns:1.5fr 55px 55px 80px 70px 32px!important;}
+}
+.sidebar-logo{padding:26px 22px 18px;border-bottom:1px solid var(--border);}
+.logo-mark{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:700;color:var(--gold);line-height:1.15;}
+.logo-sub{font-size:0.62rem;letter-spacing:0.2em;text-transform:uppercase;color:var(--dim);margin-top:3px;}
+.sidebar-nav{padding:14px 10px;flex:1;overflow-y:auto;}
+.nav-sec{font-size:0.6rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--dim);padding:12px 12px 5px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;cursor:pointer;color:var(--muted);font-size:0.845rem;font-weight:500;transition:all .15s;margin-bottom:2px;user-select:none;}
+.nav-item:hover{background:var(--surface2);color:var(--text);}
+.nav-item.active{background:var(--gold-dim);color:var(--gold);}
+.nav-item svg{width:15px;height:15px;opacity:.75;flex-shrink:0;}
+.nav-item.active svg{opacity:1;}
+.sidebar-foot{padding:14px 18px;border-top:1px solid var(--border);font-size:0.68rem;color:var(--dim);line-height:1.7;}
+.conn-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--green);margin-right:5px;vertical-align:middle;}
+.page{display:none;}.page.active{display:block;}
+.ph{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:30px;flex-wrap:wrap;gap:12px;}
+.ph h2{font-family:'Playfair Display',serif;font-size:1.65rem;font-weight:600;}
+.ph p{font-size:0.82rem;color:var(--muted);margin-top:3px;}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:26px;}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;}
+.stat-l{font-size:0.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);}
+.stat-v{font-family:'Playfair Display',serif;font-size:1.6rem;margin-top:5px;}
+.stat-v.g{color:var(--gold);}.stat-v.gr{color:var(--green);}.stat-v.r{color:var(--red);}
+.stat-s{font-size:0.7rem;color:var(--dim);margin-top:2px;}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 18px;border-radius:8px;font-family:'DM Sans',sans-serif;font-size:0.845rem;font-weight:500;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+.btn svg{width:14px;height:14px;}
+.btn-p{background:var(--gold);color:#120f00;}.btn-p:hover{background:var(--gold-l);}
+.btn-s{background:var(--surface2);color:var(--text);border:1px solid var(--border);}.btn-s:hover{border-color:var(--gold);color:var(--gold);}
+.btn-d{background:rgba(224,92,106,.1);color:var(--red);border:1px solid rgba(224,92,106,.2);}.btn-d:hover{background:rgba(224,92,106,.2);}
+.btn-g{background:rgba(82,183,136,.1);color:var(--green);border:1px solid rgba(82,183,136,.2);}.btn-g:hover{background:rgba(82,183,136,.2);}
+.btn-sm{padding:6px 13px;font-size:0.79rem;}.btn-xs{padding:4px 9px;font-size:0.73rem;}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap;}
+.btn:disabled{opacity:.5;cursor:not-allowed;}
+.tw{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;overflow-x:auto;}
+.tw table{width:100%;border-collapse:collapse;min-width:500px;}
+.tw thead th{padding:12px 16px;text-align:left;font-size:0.68rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;border-bottom:1px solid var(--border);background:rgba(0,0,0,.15);}
+.tw tbody td{padding:13px 16px;font-size:0.845rem;border-bottom:1px solid var(--border);}
+.tw tbody tr:last-child td{border-bottom:none;}
+.tw tbody tr:hover td{background:rgba(255,255,255,.018);}
+.tw-hdr{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap;gap:8px;}
+.tw-title{font-size:0.9rem;font-weight:600;}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:0.7rem;font-weight:600;letter-spacing:.03em;}
+.badge-paid{background:rgba(82,183,136,.15);color:var(--green);}
+.badge-pending{background:rgba(201,168,76,.15);color:var(--gold);}
+.badge-draft{background:rgba(85,85,106,.25);color:var(--muted);}
+.badge-overdue{background:rgba(224,92,106,.15);color:var(--red);}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:22px;margin-bottom:18px;}
+.card-title{font-family:'Playfair Display',serif;font-size:1.05rem;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--border);}
+.fr{display:grid;gap:14px;margin-bottom:14px;}
+.fr.c2{grid-template-columns:1fr 1fr;}.fr.c3{grid-template-columns:1fr 1fr 1fr;}
+.fl{display:block;font-size:0.77rem;font-weight:500;color:var(--muted);margin-bottom:5px;}
+.fi,.fs,.fta{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:0.845rem;transition:border-color .15s;outline:none;}
+.fi:focus,.fs:focus,.fta:focus{border-color:var(--gold);}
+.fs{cursor:pointer;}.fs option{background:var(--surface2);}
+.fta{resize:vertical;min-height:70px;}
+.fi::placeholder,.fta::placeholder{color:var(--dim);}
+.fi[readonly]{color:var(--gold);font-weight:600;cursor:default;}
+.ih,.ir{display:grid;gap:8px;align-items:center;}
+.ih{font-size:0.68rem;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);padding:8px 0;border-bottom:1px solid var(--border);margin-bottom:4px;}
+.ir{padding:5px 0;border-bottom:1px solid rgba(42,42,64,.4);}
+.ir:last-child{border-bottom:none;}
+.cols6{grid-template-columns:2.2fr 0.9fr 65px 1.1fr 1fr 32px;}
+.ia{text-align:right;font-weight:500;color:var(--gold);font-size:0.845rem;}
+.ri{width:32px;height:32px;border-radius:6px;background:rgba(224,92,106,.08);border:1px solid rgba(224,92,106,.2);color:var(--red);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;font-size:1rem;line-height:1;}
+.ri:hover{background:rgba(224,92,106,.2);}
+.fi.sm{font-size:0.8rem;padding:7px 9px;}
+.totals-box{display:flex;flex-direction:column;align-items:flex-end;gap:7px;margin-top:16px;}
+.tr2{display:flex;justify-content:space-between;min-width:260px;font-size:0.845rem;}
+.tr2 .lb{color:var(--muted);}
+.tr2.grand{font-size:1rem;font-weight:700;color:var(--gold);padding-top:9px;border-top:1px solid var(--border);}
+.empty-items{text-align:center;padding:22px;color:var(--dim);font-size:0.82rem;}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.75);display:flex;align-items:center;justify-content:center;z-index:50;opacity:0;pointer-events:none;transition:opacity .2s;}
+.overlay.open{opacity:1;pointer-events:all;}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:26px;width:480px;max-width:93vw;max-height:88vh;overflow-y:auto;transform:translateY(14px);transition:transform .2s;}
+.overlay.open .modal{transform:translateY(0);}
+.modal-title{font-family:'Playfair Display',serif;font-size:1.15rem;margin-bottom:16px;}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+.empty{text-align:center;padding:55px 20px;}
+.empty-icon{font-size:2.4rem;margin-bottom:10px;opacity:.35;}
+.empty h3{color:var(--muted);margin-bottom:5px;font-weight:500;}
+.empty p{font-size:0.81rem;color:var(--dim);}
+.toast{position:fixed;bottom:22px;right:22px;background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:8px;padding:11px 18px;font-size:0.845rem;z-index:200;opacity:0;transform:translateY(8px);transition:all .2s;pointer-events:none;min-width:200px;max-width:320px;}
+.toast.show{opacity:1;transform:translateY(0);}
+.toast.success{border-left-color:var(--green);}
+.toast.error{border-left-color:var(--red);}
+.info-box{font-size:0.81rem;color:var(--muted);background:var(--gold-dim);border:1px solid rgba(201,168,76,.2);border-radius:8px;padding:11px 15px;margin-bottom:18px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="spinner"></div>
+  <div class="loading-txt">Connecting to cloud...</div>
+</div>
+
+<div id="setup-screen" class="hidden">
+  <div class="setup-box">
+    <div class="setup-logo">Studio Sahansa</div>
+    <div class="setup-sub">One-time setup — connect your free Supabase database</div>
+    <div class="setup-step"><div class="step-num">1</div><div class="step-txt">Go to <a href="https://supabase.com" target="_blank">supabase.com</a> → Create a free account → Click <strong>New Project</strong>. Wait ~2 minutes for it to be ready.</div></div>
+    <div class="setup-step"><div class="step-num">2</div><div class="step-txt">In your project, click <strong>SQL Editor</strong> in the left sidebar. Paste the <strong>Setup SQL</strong> (from the guide below) and click <strong>Run</strong>.</div></div>
+    <div class="setup-step"><div class="step-num">3</div><div class="step-txt">Go to <strong>Project Settings → API</strong>. Copy your <strong>Project URL</strong> and <strong>anon / public key</strong> and paste them here.</div></div>
+    <hr class="div">
+    <div id="setup-err" class="setup-err"></div>
+    <div class="fr"><div><label class="fl">Supabase Project URL</label><input class="fi" id="sb-url" placeholder="https://abcdefghijkl.supabase.co"></div></div>
+    <div class="fr"><div><label class="fl">Supabase Anon / Public Key</label><input class="fi" id="sb-key" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."></div></div>
+    <button class="btn btn-p" style="width:100%;justify-content:center;margin-top:6px;" id="connect-btn" onclick="connectSupabase()">Connect & Start →</button>
+  </div>
+</div>
+
+<div class="app" id="app" style="display:none;">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-mark">Studio Sahansa</div>
+      <div class="logo-sub">Invoice Manager</div>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-sec">Overview</div>
+      <div class="nav-item active" data-p="dashboard" onclick="nav('dashboard')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>Dashboard
+      </div>
+      <div class="nav-sec">Manage</div>
+      <div class="nav-item" data-p="services" onclick="nav('services')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>Services
+      </div>
+      <div class="nav-item" data-p="invoices" onclick="nav('invoices')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>All Invoices
+      </div>
+      <div class="nav-sec">Actions</div>
+      <div class="nav-item" data-p="new-invoice" onclick="nav('new-invoice')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>New Invoice
+      </div>
+      <div class="nav-sec">System</div>
+      <div class="nav-item" data-p="settings" onclick="nav('settings')">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93l-1.41 1.41M6.34 17.66l-1.41 1.41M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M12 2v2M12 20v2M2 12h2M20 12h2"/></svg>Settings
+      </div>
+    </nav>
+    <div class="sidebar-foot"><span class="conn-dot"></span>Cloud Synced<br>Works on all your devices</div>
+  </aside>
+
+  <main class="main">
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard" class="page active">
+      <div class="ph"><div><h2>Dashboard</h2><p>Welcome back to Studio Sahansa</p></div></div>
+      <div class="stats" id="dash-stats">
+        <div class="stat"><div class="stat-l">Total Invoices</div><div class="stat-v">—</div></div>
+        <div class="stat"><div class="stat-l">Revenue</div><div class="stat-v g">—</div></div>
+        <div class="stat"><div class="stat-l">Paid</div><div class="stat-v gr">—</div></div>
+        <div class="stat"><div class="stat-l">Pending</div><div class="stat-v r">—</div></div>
+      </div>
+      <div class="tw">
+        <div class="tw-hdr"><span class="tw-title">Recent Invoices</span><button class="btn btn-s btn-sm" onclick="nav('invoices')">View All</button></div>
+        <table><thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Amount</th><th>Status</th></tr></thead>
+        <tbody id="dash-recent"></tbody></table>
+      </div>
+    </div>
+
+    <!-- SERVICES -->
+    <div id="page-services" class="page">
+      <div class="ph">
+        <div><h2>Services</h2><p>Your reusable voice over service items</p></div>
+        <button class="btn btn-p" onclick="openSvcModal(null)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Service
+        </button>
+      </div>
+      <div class="tw">
+        <table><thead><tr><th>Service Name</th><th>Description</th><th>Unit Label</th><th>Default Rate (LKR)</th><th>Actions</th></tr></thead>
+        <tbody id="svc-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- INVOICES -->
+    <div id="page-invoices" class="page">
+      <div class="ph">
+        <div><h2>All Invoices</h2><p>Manage and print all your invoices</p></div>
+        <button class="btn btn-p" onclick="nav('new-invoice')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>New Invoice
+        </button>
+      </div>
+      <div class="tw">
+        <table><thead><tr><th>Invoice #</th><th>Customer</th><th>Date</th><th>Due Date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+        <tbody id="inv-body"></tbody></table>
+      </div>
+    </div>
+
+    <!-- NEW INVOICE -->
+    <div id="page-new-invoice" class="page">
+      <div class="ph"><div><h2>New Invoice</h2><p>Create a new invoice for your client</p></div></div>
+      <div class="inv-layout" style="display:grid;grid-template-columns:1fr 340px;gap:18px;align-items:start;">
+        <div>
+          <div class="card">
+            <div class="card-title">Customer Details</div>
+            <div class="fr c2">
+              <div><label class="fl">Customer Name *</label><input class="fi" id="c-name" placeholder="e.g. Dilshan Perera"></div>
+              <div><label class="fl">Company / Brand</label><input class="fi" id="c-company" placeholder="Optional"></div>
+            </div>
+            <div class="fr c2">
+              <div><label class="fl">Email</label><input class="fi" id="c-email" type="email" placeholder="client@example.com"></div>
+              <div><label class="fl">Phone</label><input class="fi" id="c-phone" placeholder="+94 77 000 0000"></div>
+            </div>
+            <div class="fr"><div><label class="fl">Address</label><textarea class="fta" id="c-address" rows="2" placeholder="Client address (optional)"></textarea></div></div>
+          </div>
+          <div class="card">
+            <div class="card-title">Invoice Items</div>
+            <div style="display:flex;gap:10px;margin-bottom:16px;">
+              <select class="fs" id="svc-picker" style="flex:1;"><option value="">— Pick a saved service to add —</option></select>
+              <button class="btn btn-s" onclick="addFromSvc()">Add</button>
+            </div>
+            <div class="ih cols6"><span>Description</span><span>Unit</span><span>Qty</span><span>Rate (LKR)</span><span style="text-align:right">Amount</span><span></span></div>
+            <div id="items-list"><div class="empty-items">No items yet. Pick a service above or add a custom item.</div></div>
+            <button class="btn btn-s btn-sm" style="margin-top:12px;" onclick="addBlankItem()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Add Custom Item
+            </button>
+            <div class="totals-box">
+              <div class="tr2"><span class="lb">Subtotal</span><span id="tot-sub">LKR 0.00</span></div>
+              <div class="tr2" id="tax-row" style="display:none"><span class="lb">Tax (<span id="tax-pct">0</span>%)</span><span id="tot-tax">LKR 0.00</span></div>
+              <div class="tr2 grand"><span>Total</span><span id="tot-total">LKR 0.00</span></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Notes</div>
+            <textarea class="fta" id="inv-notes" rows="3" placeholder="Additional notes for the client..."></textarea>
+          </div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-title">Invoice Details</div>
+            <div style="margin-bottom:13px;"><label class="fl">Invoice Number</label><input class="fi" id="inv-num" readonly></div>
+            <div style="margin-bottom:13px;"><label class="fl">Invoice Date</label><input class="fi" id="inv-date" type="date"></div>
+            <div style="margin-bottom:13px;"><label class="fl">Due Date</label><input class="fi" id="inv-due" type="date"></div>
+            <div style="margin-bottom:13px;"><label class="fl">Status</label>
+              <select class="fs" id="inv-status"><option value="draft">Draft</option><option value="pending" selected>Pending</option><option value="paid">Paid</option></select>
+            </div>
+            <div><label class="fl">Currency</label><input class="fi" value="LKR — Sri Lankan Rupee" readonly style="color:var(--muted);cursor:default;"></div>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <button class="btn btn-p" style="width:100%;justify-content:center;" id="save-inv-btn" onclick="saveInvoice()">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+              Save Invoice
+            </button>
+            <button class="btn btn-s" style="width:100%;justify-content:center;" onclick="nav('invoices')">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW INVOICE -->
+    <div id="page-view-invoice" class="page">
+      <div class="ph">
+        <div><h2 id="vi-num">Invoice</h2><p id="vi-sub"></p></div>
+        <div class="btn-row">
+          <button class="btn btn-g" onclick="printCurrent()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+            Print / Save PDF
+          </button>
+          <button class="btn btn-s" onclick="nav('invoices')">← Back</button>
+        </div>
+      </div>
+      <div id="vi-content" style="max-width:680px;"></div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div id="page-settings" class="page">
+      <div class="ph">
+        <div><h2>Settings</h2><p>Business info and preferences</p></div>
+        <button class="btn btn-p" id="save-settings-btn" onclick="saveSettings()">Save Settings</button>
+      </div>
+      <div class="info-box">💡 Fill in your <strong>bank details</strong> below — they'll appear on every invoice so clients know where to pay.</div>
+      <div class="card">
+        <div class="card-title">Business Information</div>
+        <div class="fr c2">
+          <div><label class="fl">Business Name</label><input class="fi" id="s-name" placeholder="Studio Sahansa"></div>
+          <div><label class="fl">Email</label><input class="fi" id="s-email" type="email"></div>
+        </div>
+        <div class="fr c2">
+          <div><label class="fl">Phone</label><input class="fi" id="s-phone"></div>
+          <div><label class="fl">Website</label><input class="fi" id="s-web"></div>
+        </div>
+        <div class="fr"><div><label class="fl">Address</label><textarea class="fta" id="s-addr" rows="2"></textarea></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Invoice Settings</div>
+        <div class="fr c2">
+          <div><label class="fl">Invoice Number Prefix</label><input class="fi" id="s-prefix" placeholder="INV"></div>
+          <div><label class="fl">Tax / VAT Rate (%)</label><input class="fi" id="s-tax" type="number" placeholder="0" min="0" max="100"></div>
+        </div>
+        <div class="fr"><div><label class="fl">Bank / Payment Details (printed on invoice)</label><textarea class="fta" id="s-bank" rows="3" placeholder="Bank: Commercial Bank of Ceylon&#10;Account No: 1234567890&#10;Branch: Colombo 03"></textarea></div></div>
+        <div class="fr"><div><label class="fl">Invoice Footer Message</label><textarea class="fta" id="s-footer" rows="2" placeholder="Thank you for choosing Studio Sahansa!"></textarea></div></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Database Connection</div>
+        <p style="font-size:.82rem;color:var(--muted);margin-bottom:12px;">Connected to: <strong id="sb-url-display" style="color:var(--gold);"></strong></p>
+        <p style="font-size:.8rem;color:var(--dim);margin-bottom:14px;">Your data is stored securely in Supabase and syncs across your laptop and phone.</p>
+        <button class="btn btn-d btn-sm" onclick="disconnectDB()">Disconnect / Change Database</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- SERVICE MODAL -->
+<div class="overlay" id="svc-modal">
+  <div class="modal">
+    <div class="modal-title" id="sm-title">Add Service</div>
+    <input type="hidden" id="sm-id">
+    <div class="fr"><div><label class="fl">Service Name *</label><input class="fi" id="sm-name" placeholder="e.g. Sinhala Voice Over"></div></div>
+    <div class="fr"><div><label class="fl">Description</label><input class="fi" id="sm-desc" placeholder="e.g. Professional Sinhala narration recording"></div></div>
+    <div class="fr c2">
+      <div><label class="fl">Unit Label</label><input class="fi" id="sm-unit" placeholder="e.g. per minute"></div>
+      <div><label class="fl">Default Rate (LKR)</label><input class="fi" id="sm-rate" type="number" placeholder="0.00" min="0"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-s" onclick="closeOverlay('svc-modal')">Cancel</button>
+      <button class="btn btn-p" id="svc-save-btn" onclick="saveSvc()">Save Service</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFIRM MODAL -->
+<div class="overlay" id="conf-modal">
+  <div class="modal" style="max-width:370px;">
+    <div class="modal-title" id="conf-title">Are you sure?</div>
+    <p id="conf-msg" style="color:var(--muted);font-size:0.855rem;line-height:1.6;"></p>
+    <div class="modal-actions">
+      <button class="btn btn-s" onclick="closeOverlay('conf-modal')">Cancel</button>
+      <button class="btn btn-d" id="conf-btn">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let sb=null;
+let settings={businessName:'Studio Sahansa',email:'',phone:'',website:'',address:'',prefix:'INV',taxRate:0,bankDetails:'',footerNote:'Thank you for choosing Studio Sahansa!',nextNum:1};
+let items=[];
+let curViewId=null;
+let cachedSvcs=[];
+
+// ─── BOOT ─────────────────────────────────────────────────────
+async function init(){
+  const url=localStorage.getItem('sb_url');
+  const key=localStorage.getItem('sb_key');
+  if(url&&key){
+    try{
+      sb=supabase.createClient(url,key);
+      const{error}=await sb.from('settings').select('id').limit(1);
+      if(error)throw error;
+      await loadSettings();
+      showApp();
+    }catch(e){
+      localStorage.removeItem('sb_url');localStorage.removeItem('sb_key');
+      showSetup('Connection failed: '+e.message+'. Please re-enter your credentials.');
+    }
+  }else{showSetup();}
+}
+
+async function connectSupabase(){
+  const url=document.getElementById('sb-url').value.trim();
+  const key=document.getElementById('sb-key').value.trim();
+  const btn=document.getElementById('connect-btn');
+  document.getElementById('setup-err').style.display='none';
+  if(!url||!key){setErr('Please enter both the Project URL and the Anon key.');return;}
+  if(!url.startsWith('https://')){setErr('URL must start with https://');return;}
+  btn.disabled=true;btn.textContent='Connecting...';
+  try{
+    sb=supabase.createClient(url,key);
+    const{error}=await sb.from('settings').select('id').limit(1);
+    if(error)throw error;
+    localStorage.setItem('sb_url',url);localStorage.setItem('sb_key',key);
+    await loadSettings();showApp();
+  }catch(e){setErr('Could not connect: '+(e.message||'Check URL and key, and make sure you ran the Setup SQL.'));btn.disabled=false;btn.textContent='Connect & Start →';}
+}
+
+function setErr(m){const el=document.getElementById('setup-err');el.textContent=m;el.style.display='block';}
+
+function disconnectDB(){
+  confirm2('Disconnect','Your data stays safe in Supabase. You can reconnect anytime.',()=>{
+    localStorage.removeItem('sb_url');localStorage.removeItem('sb_key');location.reload();
+  });
+}
+
+function showApp(){
+  document.getElementById('loading-screen').classList.add('hidden');
+  document.getElementById('setup-screen').classList.add('hidden');
+  document.getElementById('app').style.display='flex';
+  const url=localStorage.getItem('sb_url')||'';
+  document.getElementById('sb-url-display').textContent=url.replace('https://','').split('.')[0]+'.supabase.co';
+  nav('dashboard');
+}
+
+function showSetup(err){
+  document.getElementById('loading-screen').classList.add('hidden');
+  document.getElementById('setup-screen').classList.remove('hidden');
+  if(err)setErr(err);
+}
+
+// ─── SETTINGS DB ──────────────────────────────────────────────
+async function loadSettings(){
+  try{
+    const{data,error}=await sb.from('settings').select('*').eq('id',1).maybeSingle();
+    if(error)throw error;
+    if(data){settings={businessName:data.business_name||'Studio Sahansa',email:data.email||'',phone:data.phone||'',website:data.website||'',address:data.address||'',prefix:data.prefix||'INV',taxRate:data.tax_rate||0,bankDetails:data.bank_details||'',footerNote:data.footer_note||'Thank you for choosing Studio Sahansa!',nextNum:data.next_num||1};}
+    else{await sb.from('settings').insert([{id:1,business_name:'Studio Sahansa',prefix:'INV',tax_rate:0,next_num:1}]);}
+  }catch(e){console.warn('Settings:',e);}
+}
+
+// ─── NAV ──────────────────────────────────────────────────────
+function nav(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelector('[data-p="'+p+'"]')?.classList.add('active');
+  if(p==='dashboard')renderDash();
+  else if(p==='services')renderSvcs();
+  else if(p==='invoices')renderInvs();
+  else if(p==='new-invoice')initNewInv();
+  else if(p==='settings')loadSettingsPage();
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────
+async function renderDash(){
+  try{
+    const{data:invs,error}=await sb.from('invoices').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    const all=invs||[];
+    const rev=all.reduce((s,i)=>s+parseFloat(i.total||0),0);
+    const paid=all.filter(i=>i.status==='paid').length;
+    const pend=all.filter(i=>i.status==='pending').length;
+    document.getElementById('dash-stats').innerHTML=`
+      <div class="stat"><div class="stat-l">Total Invoices</div><div class="stat-v">${all.length}</div><div class="stat-s">All time</div></div>
+      <div class="stat"><div class="stat-l">Revenue</div><div class="stat-v g" style="font-size:1.1rem;margin-top:8px;">${lkr(rev)}</div><div class="stat-s">All invoices</div></div>
+      <div class="stat"><div class="stat-l">Paid</div><div class="stat-v gr">${paid}</div><div class="stat-s">Invoices</div></div>
+      <div class="stat"><div class="stat-l">Pending</div><div class="stat-v r">${pend}</div><div class="stat-s">Awaiting payment</div></div>`;
+    const tb=document.getElementById('dash-recent');
+    const rec=all.slice(0,5);
+    if(!rec.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">📄</div><h3>No invoices yet</h3><p>Create your first invoice to get started</p></div></td></tr>`;return;}
+    tb.innerHTML=rec.map(i=>`<tr style="cursor:pointer" onclick="viewInv('${i.id}')">
+      <td style="color:var(--gold);font-weight:600;">${i.invoice_number}</td>
+      <td>${i.customer_name}${i.customer_company?`<br><span style="font-size:.73rem;color:var(--muted)">${i.customer_company}</span>`:''}</td>
+      <td>${fmtDate(i.date)}</td><td style="font-weight:500;">${lkr(i.total)}</td>
+      <td><span class="badge badge-${i.status}">${cap(i.status)}</span></td></tr>`).join('');
+  }catch(e){toast('Dashboard error: '+e.message,'error');}
+}
+
+// ─── SERVICES ─────────────────────────────────────────────────
+async function renderSvcs(){
+  const tb=document.getElementById('svc-body');
+  try{
+    const{data,error}=await sb.from('services').select('*').order('created_at',{ascending:true});
+    if(error)throw error;
+    cachedSvcs=data||[];
+    if(!cachedSvcs.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">✨</div><h3>No services yet</h3><p>Add your voice over services here, then pick them when creating invoices</p></div></td></tr>`;return;}
+    tb.innerHTML=cachedSvcs.map(s=>`<tr>
+      <td style="font-weight:500;">${s.name}</td>
+      <td style="color:var(--muted)">${s.description||'—'}</td>
+      <td style="color:var(--muted)">${s.unit||'—'}</td>
+      <td style="color:var(--gold);font-weight:500;">${s.rate?lkr(s.rate):'—'}</td>
+      <td><div class="btn-row">
+        <button class="btn btn-s btn-xs" onclick="openSvcModal('${s.id}')">Edit</button>
+        <button class="btn btn-d btn-xs" onclick="delSvc('${s.id}')">Delete</button>
+      </div></td></tr>`).join('');
+  }catch(e){toast('Services error: '+e.message,'error');}
+}
+
+async function openSvcModal(id){
+  if(id){
+    const s=cachedSvcs.find(x=>String(x.id)===String(id));
+    if(!s)return;
+    document.getElementById('sm-title').textContent='Edit Service';
+    document.getElementById('sm-id').value=s.id;
+    document.getElementById('sm-name').value=s.name||'';
+    document.getElementById('sm-desc').value=s.description||'';
+    document.getElementById('sm-unit').value=s.unit||'';
+    document.getElementById('sm-rate').value=s.rate||'';
+  }else{
+    document.getElementById('sm-title').textContent='Add Service';
+    ['sm-id','sm-name','sm-desc','sm-unit','sm-rate'].forEach(i=>document.getElementById(i).value='');
+  }
+  openOverlay('svc-modal');
+}
+
+async function saveSvc(){
+  const name=document.getElementById('sm-name').value.trim();
+  if(!name){toast('Service name is required','error');return;}
+  const id=document.getElementById('sm-id').value;
+  const btn=document.getElementById('svc-save-btn');
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const row={name,description:document.getElementById('sm-desc').value.trim(),unit:document.getElementById('sm-unit').value.trim(),rate:parseFloat(document.getElementById('sm-rate').value)||0};
+    if(id){const{error}=await sb.from('services').update(row).eq('id',id);if(error)throw error;}
+    else{const{error}=await sb.from('services').insert([row]);if(error)throw error;}
+    closeOverlay('svc-modal');renderSvcs();toast(id?'Service updated!':'Service added!','success');
+  }catch(e){toast('Error: '+e.message,'error');}
+  btn.disabled=false;btn.textContent='Save Service';
+}
+
+async function delSvc(id){
+  confirm2('Delete Service','Remove this service? Existing invoices won\'t be affected.',async()=>{
+    try{const{error}=await sb.from('services').delete().eq('id',id);if(error)throw error;renderSvcs();toast('Deleted','success');}
+    catch(e){toast('Error: '+e.message,'error');}
+  });
+}
+
+// ─── INVOICES LIST ────────────────────────────────────────────
+async function renderInvs(){
+  const tb=document.getElementById('inv-body');
+  try{
+    const{data,error}=await sb.from('invoices').select('*').order('created_at',{ascending:false});
+    if(error)throw error;
+    const invs=data||[];
+    if(!invs.length){tb.innerHTML=`<tr><td colspan="7"><div class="empty"><div class="empty-icon">📋</div><h3>No invoices yet</h3><p>Hit "New Invoice" to create your first one</p></div></td></tr>`;return;}
+    tb.innerHTML=invs.map(i=>`<tr>
+      <td style="color:var(--gold);font-weight:600;cursor:pointer" onclick="viewInv('${i.id}')">${i.invoice_number}</td>
+      <td>${i.customer_name}${i.customer_company?`<br><span style="font-size:.73rem;color:var(--muted)">${i.customer_company}</span>`:''}</td>
+      <td>${fmtDate(i.date)}</td><td>${i.due_date?fmtDate(i.due_date):'—'}</td>
+      <td style="font-weight:500;">${lkr(i.total)}</td>
+      <td><select class="fs" style="padding:4px 8px;font-size:.77rem;border-radius:6px;" onchange="setStatus('${i.id}',this.value)">
+        <option value="draft" ${i.status==='draft'?'selected':''}>Draft</option>
+        <option value="pending" ${i.status==='pending'?'selected':''}>Pending</option>
+        <option value="paid" ${i.status==='paid'?'selected':''}>Paid</option>
+        <option value="overdue" ${i.status==='overdue'?'selected':''}>Overdue</option>
+      </select></td>
+      <td><div class="btn-row">
+        <button class="btn btn-s btn-xs" onclick="viewInv('${i.id}')">View</button>
+        <button class="btn btn-g btn-xs" onclick="printById('${i.id}')">Print</button>
+        <button class="btn btn-d btn-xs" onclick="delInv('${i.id}')">Del</button>
+      </div></td></tr>`).join('');
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+
+async function setStatus(id,status){
+  try{const{error}=await sb.from('invoices').update({status}).eq('id',id);if(error)throw error;toast('Status updated','success');}
+  catch(e){toast('Error: '+e.message,'error');}
+}
+
+async function delInv(id){
+  confirm2('Delete Invoice','This permanently deletes the invoice. Cannot be undone.',async()=>{
+    try{const{error}=await sb.from('invoices').delete().eq('id',id);if(error)throw error;renderInvs();toast('Invoice deleted','success');}
+    catch(e){toast('Error: '+e.message,'error');}
+  });
+}
+
+// ─── NEW INVOICE ──────────────────────────────────────────────
+async function initNewInv(){
+  items=[];
+  const today=new Date();const due=new Date();due.setDate(due.getDate()+14);
+  document.getElementById('inv-date').value=today.toISOString().split('T')[0];
+  document.getElementById('inv-due').value=due.toISOString().split('T')[0];
+  document.getElementById('inv-status').value='pending';
+  ['c-name','c-company','c-email','c-phone','c-address','inv-notes'].forEach(id=>{const el=document.getElementById(id);if(el)el.value='';});
+  document.getElementById('inv-num').value=(settings.prefix||'INV')+'-'+String(settings.nextNum||1).padStart(4,'0');
+  try{
+    const{data,error}=await sb.from('services').select('*').order('created_at',{ascending:true});
+    if(error)throw error;
+    cachedSvcs=data||[];
+    const pk=document.getElementById('svc-picker');
+    pk.innerHTML='<option value="">— Pick a saved service to add —</option>'+
+      cachedSvcs.map(s=>`<option value="${s.id}">${s.name}${s.rate?' — LKR '+parseFloat(s.rate).toLocaleString():''}</option>`).join('');
+  }catch(e){}
+  renderItems();
+}
+
+function addFromSvc(){
+  const pk=document.getElementById('svc-picker');
+  const sid=pk.value;
+  if(!sid){toast('Select a service first','error');return;}
+  const s=cachedSvcs.find(x=>String(x.id)===String(sid));
+  if(!s)return;
+  items.push({desc:s.name+(s.description?' — '+s.description:''),unit:s.unit||'',qty:1,rate:parseFloat(s.rate)||0,amount:parseFloat(s.rate)||0});
+  pk.value='';renderItems();
+}
+
+function addBlankItem(){items.push({desc:'',unit:'',qty:1,rate:0,amount:0});renderItems();}
+function rmItem(idx){items.splice(idx,1);renderItems();}
+
+function updItem(idx,field,val){
+  if(field==='desc'||field==='unit'){items[idx][field]=val;return;}
+  items[idx][field]=parseFloat(val)||0;
+  items[idx].amount=items[idx].qty*items[idx].rate;
+  document.querySelectorAll('.ia')[idx].textContent=lkr(items[idx].amount);
+  calcTotals();
+}
+
+function renderItems(){
+  const el=document.getElementById('items-list');
+  if(!items.length){el.innerHTML='<div class="empty-items">No items yet. Pick a service above or add a custom item.</div>';calcTotals();return;}
+  el.innerHTML=items.map((item,idx)=>`
+    <div class="ir cols6">
+      <input class="fi sm" value="${esc(item.desc)}" placeholder="Description" oninput="updItem(${idx},'desc',this.value)">
+      <input class="fi sm" value="${esc(item.unit)}" placeholder="per min" oninput="updItem(${idx},'unit',this.value)">
+      <input class="fi sm" type="number" value="${item.qty}" min="0.01" step="0.01" oninput="updItem(${idx},'qty',this.value)">
+      <input class="fi sm" type="number" value="${item.rate}" min="0" step="0.01" oninput="updItem(${idx},'rate',this.value)">
+      <div class="ia">${lkr(item.amount)}</div>
+      <button class="ri" onclick="rmItem(${idx})">×</button>
+    </div>`).join('');
+  calcTotals();
+}
+
+function calcTotals(){
+  const sub=items.reduce((s,i)=>s+i.amount,0);
+  const tr=parseFloat(settings.taxRate)||0;
+  const tax=sub*tr/100;
+  document.getElementById('tot-sub').textContent=lkr(sub);
+  document.getElementById('tot-total').textContent=lkr(sub+tax);
+  const taxRow=document.getElementById('tax-row');
+  if(tr>0){taxRow.style.display='flex';document.getElementById('tax-pct').textContent=tr;document.getElementById('tot-tax').textContent=lkr(tax);}
+  else taxRow.style.display='none';
+}
+
+async function saveInvoice(){
+  const name=document.getElementById('c-name').value.trim();
+  if(!name){toast('Customer name is required','error');return;}
+  if(!items.length){toast('Add at least one item','error');return;}
+  const btn=document.getElementById('save-inv-btn');
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const sub=items.reduce((s,i)=>s+i.amount,0);
+    const tr=parseFloat(settings.taxRate)||0;
+    const tax=sub*tr/100;
+    const row={
+      invoice_number:document.getElementById('inv-num').value,
+      date:document.getElementById('inv-date').value,
+      due_date:document.getElementById('inv-due').value||null,
+      status:document.getElementById('inv-status').value,
+      customer_name:name,
+      customer_company:document.getElementById('c-company').value.trim(),
+      customer_email:document.getElementById('c-email').value.trim(),
+      customer_phone:document.getElementById('c-phone').value.trim(),
+      customer_address:document.getElementById('c-address').value.trim(),
+      items:items,notes:document.getElementById('inv-notes').value.trim(),
+      subtotal:sub,tax,tax_rate:tr,total:sub+tax
+    };
+    const{data,error}=await sb.from('invoices').insert([row]).select().single();
+    if(error)throw error;
+    const newNum=(settings.nextNum||1)+1;
+    await sb.from('settings').update({next_num:newNum}).eq('id',1);
+    settings.nextNum=newNum;
+    toast('Invoice saved!','success');
+    viewInv(data.id);
+  }catch(e){toast('Save error: '+e.message,'error');}
+  btn.disabled=false;btn.textContent='Save Invoice';
+}
+
+// ─── VIEW / PRINT ─────────────────────────────────────────────
+async function viewInv(id){
+  curViewId=id;
+  try{
+    const{data:inv,error}=await sb.from('invoices').select('*').eq('id',id).single();
+    if(error)throw error;
+    document.getElementById('vi-num').textContent=inv.invoice_number;
+    document.getElementById('vi-sub').textContent=inv.customer_name+' — '+lkr(inv.total);
+    document.getElementById('vi-content').innerHTML=buildScreenInv(inv);
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.getElementById('page-view-invoice').classList.add('active');
+    document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+    document.querySelector('[data-p="invoices"]')?.classList.add('active');
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+
+function buildScreenInv(inv){
+  const s=settings;
+  const invItems=Array.isArray(inv.items)?inv.items:(typeof inv.items==='string'?JSON.parse(inv.items):inv.items||[]);
+  return `<div class="card" style="border-color:rgba(201,168,76,.2);">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:22px;flex-wrap:wrap;gap:12px;">
+      <div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.55rem;font-weight:700;color:var(--gold);">${s.businessName}</div>
+        ${s.address?`<div style="font-size:.8rem;color:var(--muted);margin-top:3px;">${s.address.replace(/\n/g,'<br>')}</div>`:''}
+        ${s.phone?`<div style="font-size:.8rem;color:var(--muted);">${s.phone}</div>`:''}
+        ${s.email?`<div style="font-size:.8rem;color:var(--muted);">${s.email}</div>`:''}
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:1.35rem;font-weight:700;color:var(--gold-l);">${inv.invoice_number}</div>
+        <span class="badge badge-${inv.status}" style="margin-top:6px;">${cap(inv.status)}</span>
+        <div style="font-size:.77rem;color:var(--muted);margin-top:8px;">Date: ${fmtDate(inv.date)}</div>
+        ${inv.due_date?`<div style="font-size:.77rem;color:var(--muted);">Due: ${fmtDate(inv.due_date)}</div>`:''}
+      </div>
+    </div>
+    <div style="background:var(--surface2);border-radius:8px;padding:14px;margin-bottom:20px;">
+      <div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:7px;">Bill To</div>
+      <div style="font-weight:600;">${inv.customer_name}${inv.customer_company?' — '+inv.customer_company:''}</div>
+      ${inv.customer_email?`<div style="color:var(--muted);font-size:.83rem;">${inv.customer_email}</div>`:''}
+      ${inv.customer_phone?`<div style="color:var(--muted);font-size:.83rem;">${inv.customer_phone}</div>`:''}
+      ${inv.customer_address?`<div style="color:var(--muted);font-size:.83rem;">${inv.customer_address}</div>`:''}
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:16px;">
+      <thead><tr style="border-bottom:1px solid var(--border);">
+        <th style="text-align:left;padding:8px 0;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Description</th>
+        <th style="text-align:center;padding:8px 6px;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Qty</th>
+        <th style="text-align:right;padding:8px 0;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Rate</th>
+        <th style="text-align:right;padding:8px 0;font-size:.68rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);">Amount</th>
+      </tr></thead>
+      <tbody>${invItems.map(item=>`<tr style="border-bottom:1px solid rgba(42,42,64,.45);">
+        <td style="padding:11px 0;">${item.desc}${item.unit?`<br><span style="font-size:.72rem;color:var(--muted)">${item.unit}</span>`:''}</td>
+        <td style="padding:11px 6px;text-align:center;color:var(--muted);">${item.qty}</td>
+        <td style="padding:11px 0;text-align:right;color:var(--muted);">${fmtNum(item.rate)}</td>
+        <td style="padding:11px 0;text-align:right;font-weight:500;">${fmtNum(item.amount)}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+    <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;min-width:240px;font-size:.845rem;"><span style="color:var(--muted);">Subtotal</span><span>${fmtNum(inv.subtotal)}</span></div>
+      ${inv.tax_rate?`<div style="display:flex;justify-content:space-between;min-width:240px;font-size:.845rem;"><span style="color:var(--muted);">Tax (${inv.tax_rate}%)</span><span>${fmtNum(inv.tax)}</span></div>`:''}
+      <div style="display:flex;justify-content:space-between;min-width:240px;font-size:1rem;font-weight:700;color:var(--gold);padding-top:9px;border-top:1px solid var(--border);"><span>Total (LKR)</span><span>${fmtNum(inv.total)}</span></div>
+    </div>
+    ${inv.notes?`<div style="background:var(--surface2);border-radius:8px;padding:13px;margin-bottom:12px;"><div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;">Notes</div><div style="font-size:.83rem;color:var(--muted);">${inv.notes}</div></div>`:''}
+    ${s.bankDetails?`<div style="background:var(--surface2);border-radius:8px;padding:13px;margin-bottom:12px;"><div style="font-size:.68rem;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px;">Payment Details</div><div style="font-size:.83rem;color:var(--muted);">${s.bankDetails.replace(/\n/g,'<br>')}</div></div>`:''}
+    ${s.footerNote?`<div style="text-align:center;font-size:.78rem;color:var(--dim);padding-top:12px;border-top:1px solid var(--border);">${s.footerNote}</div>`:''}
+  </div>`;
+}
+
+function printCurrent(){if(curViewId)printById(curViewId);}
+
+async function printById(id){
+  try{
+    const{data:inv,error}=await sb.from('invoices').select('*').eq('id',id).single();
+    if(error)throw error;
+    const s=settings;
+    const invItems=Array.isArray(inv.items)?inv.items:(typeof inv.items==='string'?JSON.parse(inv.items):inv.items||[]);
+    const bizInfo=[s.address?s.address.replace(/\n/g,', '):'',s.phone,s.email,s.website].filter(Boolean).join('  |  ');
+    const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${inv.invoice_number}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>*{margin:0;padding:0;box-sizing:border-box;}body{font-family:'DM Sans',sans-serif;color:#1c1c2e;background:#fff;padding:48px;font-size:13px;line-height:1.55;}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:36px;padding-bottom:22px;border-bottom:2.5px solid #c9a84c;}
+.bn{font-family:'Playfair Display',serif;font-size:24px;font-weight:700;color:#c9a84c;}
+.bi{font-size:11px;color:#777;margin-top:5px;line-height:1.7;}
+.in{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;}
+.il{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#aaa;}
+.id{font-size:11px;color:#777;margin-top:6px;line-height:1.7;}
+.badge{display:inline-block;padding:3px 11px;border-radius:20px;font-size:10px;font-weight:700;margin-top:6px;}
+.badge-paid{background:#e8f5ef;color:#2e7d55;}.badge-pending{background:#fdf6e3;color:#8a6500;}.badge-draft{background:#f0f0f5;color:#666;}.badge-overdue{background:#fdecea;color:#c0392b;}
+.bt{background:#f7f6f4;border-radius:8px;padding:15px 18px;margin-bottom:26px;}
+.sl{font-size:9px;text-transform:uppercase;letter-spacing:.12em;color:#aaa;font-weight:600;margin-bottom:7px;}
+table{width:100%;border-collapse:collapse;margin-bottom:18px;}
+thead th{padding:9px 0;text-align:left;font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#aaa;border-bottom:1px solid #e0ddd8;font-weight:600;}
+thead th:not(:first-child){text-align:right;}
+tbody td{padding:11px 0;font-size:12px;border-bottom:1px solid #f0eeeb;vertical-align:top;}
+tbody td:not(:first-child){text-align:right;}
+.tots{display:flex;flex-direction:column;align-items:flex-end;gap:5px;margin-bottom:26px;}
+.tr2{display:flex;justify-content:space-between;min-width:230px;font-size:12px;}
+.tr2 .lb{color:#777;}.tr2.grand{font-size:14px;font-weight:700;color:#c9a84c;padding-top:8px;border-top:2px solid #c9a84c;margin-top:3px;}
+.box{background:#f7f6f4;border-radius:8px;padding:13px 16px;margin-bottom:12px;}
+.box p{font-size:11px;color:#777;line-height:1.7;}
+.foot{text-align:center;font-size:10px;color:#aaa;padding-top:18px;border-top:1px solid #e8e5e0;margin-top:18px;}
+@media print{body{padding:28px;}@page{margin:8mm;size:A4;}}</style></head><body>
+<div class="hdr">
+  <div><div class="bn">${s.businessName}</div>${bizInfo?`<div class="bi">${bizInfo}</div>`:''}</div>
+  <div style="text-align:right"><div class="il">Invoice</div><div class="in">${inv.invoice_number}</div><span class="badge badge-${inv.status}">${cap(inv.status)}</span><div class="id">Date: ${fmtDate(inv.date)}${inv.due_date?'<br>Due: '+fmtDate(inv.due_date):''}</div></div>
+</div>
+<div class="bt"><div class="sl">Bill To</div>
+<div style="font-weight:600;font-size:13px;">${inv.customer_name}${inv.customer_company?' — '+inv.customer_company:''}</div>
+<div style="font-size:11px;color:#777;margin-top:3px;">${[inv.customer_email,inv.customer_phone,inv.customer_address?inv.customer_address.replace(/\n/g,', '):''].filter(Boolean).join('  |  ')}</div></div>
+<table><thead><tr><th>Description</th><th>Qty</th><th>Rate (LKR)</th><th>Amount (LKR)</th></tr></thead>
+<tbody>${invItems.map(i=>`<tr><td><div style="font-weight:500;">${i.desc}</div>${i.unit?`<div style="font-size:10px;color:#aaa;">${i.unit}</div>`:''}</td><td>${i.qty}</td><td>${fmtNum(i.rate)}</td><td>${fmtNum(i.amount)}</td></tr>`).join('')}</tbody></table>
+<div class="tots">
+<div class="tr2"><span class="lb">Subtotal</span><span>${fmtNum(inv.subtotal)}</span></div>
+${inv.tax_rate?`<div class="tr2"><span class="lb">Tax (${inv.tax_rate}%)</span><span>${fmtNum(inv.tax)}</span></div>`:''}
+<div class="tr2 grand"><span>Total (LKR)</span><span>${fmtNum(inv.total)}</span></div></div>
+${inv.notes?`<div class="box"><div class="sl">Notes</div><p>${inv.notes.replace(/\n/g,'<br>')}</p></div>`:''}
+${s.bankDetails?`<div class="box"><div class="sl">Payment Details</div><p>${s.bankDetails.replace(/\n/g,'<br>')}</p></div>`:''}
+<div class="foot">${s.footerNote||'Thank you for choosing Studio Sahansa!'}</div>
+<script>window.onload=()=>setTimeout(()=>window.print(),400);<\/script>
+</body></html>`;
+    const w=window.open('','_blank');
+    if(w){w.document.write(html);w.document.close();}
+    else toast('Please allow popups to print','error');
+  }catch(e){toast('Error: '+e.message,'error');}
+}
+
+// ─── SETTINGS PAGE ────────────────────────────────────────────
+function loadSettingsPage(){
+  const s=settings;
+  document.getElementById('s-name').value=s.businessName||'Studio Sahansa';
+  document.getElementById('s-email').value=s.email||'';
+  document.getElementById('s-phone').value=s.phone||'';
+  document.getElementById('s-web').value=s.website||'';
+  document.getElementById('s-addr').value=s.address||'';
+  document.getElementById('s-prefix').value=s.prefix||'INV';
+  document.getElementById('s-tax').value=s.taxRate||0;
+  document.getElementById('s-bank').value=s.bankDetails||'';
+  document.getElementById('s-footer').value=s.footerNote||'Thank you for choosing Studio Sahansa!';
+}
+
+async function saveSettings(){
+  const btn=document.getElementById('save-settings-btn');
+  btn.disabled=true;btn.textContent='Saving...';
+  try{
+    const row={id:1,
+      business_name:document.getElementById('s-name').value.trim()||'Studio Sahansa',
+      email:document.getElementById('s-email').value.trim(),
+      phone:document.getElementById('s-phone').value.trim(),
+      website:document.getElementById('s-web').value.trim(),
+      address:document.getElementById('s-addr').value.trim(),
+      prefix:document.getElementById('s-prefix').value.trim()||'INV',
+      tax_rate:parseFloat(document.getElementById('s-tax').value)||0,
+      bank_details:document.getElementById('s-bank').value.trim(),
+      footer_note:document.getElementById('s-footer').value.trim(),
+      next_num:settings.nextNum||1
+    };
+    const{error}=await sb.from('settings').upsert([row]);
+    if(error)throw error;
+    await loadSettings();toast('Settings saved!','success');
+  }catch(e){toast('Error: '+e.message,'error');}
+  btn.disabled=false;btn.textContent='Save Settings';
+}
+
+// ─── MODALS ───────────────────────────────────────────────────
+function openOverlay(id){document.getElementById(id).classList.add('open');}
+function closeOverlay(id){document.getElementById(id).classList.remove('open');}
+document.querySelectorAll('.overlay').forEach(el=>{el.addEventListener('click',e=>{if(e.target===el)el.classList.remove('open');});});
+function confirm2(title,msg,onOk){
+  document.getElementById('conf-title').textContent=title;
+  document.getElementById('conf-msg').textContent=msg;
+  document.getElementById('conf-btn').onclick=()=>{closeOverlay('conf-modal');onOk();};
+  openOverlay('conf-modal');
+}
+
+// ─── TOAST ────────────────────────────────────────────────────
+let toastT;
+function toast(msg,type=''){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.className='toast '+type+' show';
+  clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),3500);
+}
+
+// ─── UTILS ────────────────────────────────────────────────────
+function lkr(n){return 'LKR '+(parseFloat(n)||0).toLocaleString('en-LK',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtNum(n){return (parseFloat(n)||0).toLocaleString('en-LK',{minimumFractionDigits:2,maximumFractionDigits:2});}
+function fmtDate(d){if(!d)return '—';try{return new Date(d+'T00:00:00').toLocaleDateString('en-LK',{day:'2-digit',month:'short',year:'numeric'});}catch{return d;}}
+function cap(s){return s?s.charAt(0).toUpperCase()+s.slice(1):'';}
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+init();
+</script>
+</body>
+</html>
