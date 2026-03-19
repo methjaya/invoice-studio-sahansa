@@ -1302,7 +1302,7 @@ function openEmailModal(){
   if(!curInvData){toast('No invoice loaded','error');return;}
   document.getElementById('email-to').value = curInvData.customer_email||'';
   document.getElementById('email-subject').value = `Invoice ${curInvData.invoice_number} from ${settings.businessName}`;
-  document.getElementById('email-msg').value = `Hi ${curInvData.customer_name},\n\nPlease find your invoice details below.\n\nThank you for your business!`;
+  document.getElementById('email-msg').value = `Hi ${curInvData.customer_name},\n\nPlease find your invoice details.\n\nThank you for your business!`;
   document.getElementById('email-err').style.display='none';
   openOverlay('email-modal');
 }
