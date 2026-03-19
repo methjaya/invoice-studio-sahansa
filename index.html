@@ -1341,25 +1341,43 @@ async function sendEmail(){
       ${inv.tax_rate?`<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#6b7280;"><span>Tax (${inv.tax_rate}%)</span><span>${fmtN(inv.tax)}</span></div>`:''}
       <div style="display:flex;justify-content:space-between;background:#1e3a8a;color:#fff;padding:12px 16px;border-radius:8px;margin-top:8px;"><span style="font-weight:500;">Total (${cur})</span><span style="font-weight:700;font-size:15px;">${sym} ${fmtN(inv.total)}</span></div>
     </div></div>
-    ${msg?`<div style="background:#f8fafc;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#374151;line-height:1.7;white-space:pre-line;">${msg}</div>`:''}
-    ${s.bankDetails?`<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:16px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#0369a1;margin-bottom:6px;">Payment Details</div><div style="font-size:12px;color:#374151;line-height:1.75;white-space:pre-line;">${s.bankDetails}</div></div>`:''}
+    ${inv.notes?`<div style="background:#f8fafc;border-radius:8px;padding:14px 16px;margin-bottom:16px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#64748b;font-weight:600;margin-bottom:6px;">Notes</div><div style="font-size:13px;color:#374151;line-height:1.7;white-space:pre-line;">${inv.notes}</div></div>`:''}
+    ${msg?`<div style="background:#e8f0fe;border:1px solid #c7d9fd;border-radius:8px;padding:14px 16px;margin-bottom:16px;font-size:13px;color:#1e3a8a;line-height:1.7;white-space:pre-line;">${msg}</div>`:''}
+    ${s.bankDetails?`<div style="background:#f0f9ff;border:1px solid #bae6fd;border-radius:8px;padding:14px 16px;margin-bottom:16px;"><div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#0369a1;font-weight:600;margin-bottom:6px;">Payment Details</div><div style="font-size:12px;color:#374151;line-height:1.75;white-space:pre-line;">${s.bankDetails}</div></div>`:''}
     <div style="text-align:center;font-size:12px;color:#94a3b8;padding-top:16px;border-top:1px solid #e5e7eb;">${s.footerNote||'Thank you for choosing '+s.businessName+'!'}</div>
   </div>
 </div>`;
 
   try{
-    await emailjs.send(settings.ejsServiceId, settings.ejsTemplateId, {
-      to_email:   to,
-      to_name:    inv.customer_name,
-      from_name:  s.businessName,
-      from_email: s.senderEmail||s.email,
+    const ownerEmail = s.senderEmail || s.email;
+    const templateParams = {
+      to_email:       to,
+      to_name:        inv.customer_name,
+      from_name:      s.businessName,
+      from_email:     ownerEmail,
       subject,
       invoice_number: inv.invoice_number,
       invoice_html:   invoiceHtml,
       message:        msg
-    });
+    };
+
+    // 1️⃣ Send to customer
+    await emailjs.send(settings.ejsServiceId, settings.ejsTemplateId, templateParams);
+
+    // 2️⃣ Send copy to yourself
+    if (ownerEmail && ownerEmail !== to) {
+      const copyParams = {
+        ...templateParams,
+        to_email: ownerEmail,
+        to_name:  s.businessName,
+        subject:  '[COPY] ' + subject,
+        message:  `This is a copy of the invoice sent to ${inv.customer_name} (${to}).\n\n` + msg
+      };
+      await emailjs.send(settings.ejsServiceId, settings.ejsTemplateId, copyParams);
+    }
+
     closeOverlay('email-modal');
-    toast('Invoice sent to '+to+' ✓','success');
+    toast('Sent to ' + to + (ownerEmail ? ' · Copy sent to you ✓' : ' ✓'), 'success');
   }catch(e){
     errEl.textContent='Send failed: '+(e.text||e.message||'Check your EmailJS settings.');
     errEl.style.display='block';
