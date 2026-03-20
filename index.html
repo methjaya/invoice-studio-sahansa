@@ -420,6 +420,8 @@ a{color:var(--accent);text-decoration:none;}
         <div><h2>Settings</h2><p>Business info and preferences</p></div>
         <button class="btn btn-p" id="save-settings-btn" onclick="saveSettings()">Save Settings</button>
       </div>
+
+      <!-- Always visible -->
       <div class="card">
         <div class="card-title">Business Information</div>
         <div class="fr c2">
@@ -445,26 +447,59 @@ a{color:var(--accent);text-decoration:none;}
         <div class="fr"><div><label class="fl">Bank / Payment Details (printed on invoice)</label><textarea class="fta" id="s-bank" rows="3" placeholder="Bank: Commercial Bank of Ceylon&#10;Account No: 1234567890&#10;Branch: Colombo 03"></textarea></div></div>
         <div class="fr"><div><label class="fl">Invoice Footer Message</label><textarea class="fta" id="s-footer" rows="2" placeholder="Thank you for choosing Studio Sahansa!"></textarea></div></div>
       </div>
-      <div class="card">
-        <div class="card-title">📧 Email Settings (EmailJS)</div>
-        <div id="ejs-status" class="email-status warn">⚠️ EmailJS not configured. Fill in the fields below to enable sending invoices by email.</div>
-        <div class="info-box" style="margin-bottom:16px;">
-          To send invoices by email you need a free <strong>EmailJS</strong> account. See the setup guide below this app for step-by-step instructions.
+
+      <!-- LOCK GATE — Email & DB sections hidden behind password -->
+      <div id="settings-lock-gate">
+        <!-- Locked state -->
+        <div id="settings-locked-ui" class="card" style="text-align:center;padding:32px 22px;">
+          <div style="font-size:2rem;margin-bottom:10px;">🔒</div>
+          <div style="font-family:'Playfair Display',serif;font-size:1.1rem;margin-bottom:6px;">Protected Settings</div>
+          <div style="font-size:0.82rem;color:var(--muted);margin-bottom:20px;">Email and Database settings are locked.<br>Enter your password to access them.</div>
+          <div style="max-width:280px;margin:0 auto;">
+            <input class="fi" id="s-unlock-pwd" type="password" placeholder="Enter password" style="margin-bottom:10px;text-align:center;" onkeydown="if(event.key==='Enter')unlockSettings()">
+            <button class="btn btn-p" style="width:100%;justify-content:center;" onclick="unlockSettings()">Unlock</button>
+            <div id="s-unlock-err" style="color:var(--red);font-size:0.78rem;margin-top:8px;display:none;"></div>
+            <button class="btn btn-s btn-sm" style="width:100%;justify-content:center;margin-top:8px;" onclick="openForgotPwd()">Forgot Password?</button>
+            <div id="s-no-pwd-ui" style="display:none;margin-top:12px;">
+              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:10px;">No password set yet. Create one to protect sensitive settings.</div>
+              <button class="btn btn-p btn-sm" style="width:100%;justify-content:center;" onclick="openCreatePwd()">Create Password</button>
+            </div>
+          </div>
         </div>
-        <div class="fr c2">
-          <div><label class="fl">EmailJS Service ID</label><input class="fi" id="s-ejs-service" placeholder="service_xxxxxxx"></div>
-          <div><label class="fl">EmailJS Template ID</label><input class="fi" id="s-ejs-template" placeholder="template_xxxxxxx"></div>
+
+        <!-- Unlocked state -->
+        <div id="settings-unlocked-ui" style="display:none;">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px;">
+            <div style="display:flex;align-items:center;gap:8px;font-size:0.82rem;color:var(--green);">
+              <span>🔓</span><span>Protected settings unlocked</span>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-s btn-sm" onclick="openChangePwd()">Change Password</button>
+              <button class="btn btn-s btn-sm" onclick="lockSettings()">🔒 Lock</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">📧 Email Settings (EmailJS)</div>
+            <div id="ejs-status" class="email-status warn">⚠️ EmailJS not configured.</div>
+            <div class="info-box" style="margin-bottom:16px;">To send invoices by email you need a free <strong>EmailJS</strong> account.</div>
+            <div class="fr c2">
+              <div><label class="fl">EmailJS Service ID</label><input class="fi" id="s-ejs-service" placeholder="service_xxxxxxx"></div>
+              <div><label class="fl">EmailJS Template ID</label><input class="fi" id="s-ejs-template" placeholder="template_xxxxxxx"></div>
+            </div>
+            <div class="fr c2">
+              <div><label class="fl">EmailJS Public Key</label><input class="fi" id="s-ejs-pubkey" placeholder="xxxxxxxxxxxxxxxx"></div>
+              <div><label class="fl">Your Sender Email (must match EmailJS)</label><input class="fi" id="s-sender-email" type="email" placeholder="you@gmail.com"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-title">Database Connection</div>
+            <p style="font-size:.82rem;color:var(--muted);margin-bottom:5px;">Connected to: <strong id="sb-url-display" style="color:var(--accent);"></strong></p>
+            <p style="font-size:.79rem;color:var(--dim);margin-bottom:14px;">Your data is stored securely in Supabase and syncs across all your devices.</p>
+            <button class="btn btn-d btn-sm" onclick="disconnectDB()">Disconnect / Change Database</button>
+          </div>
         </div>
-        <div class="fr c2">
-          <div><label class="fl">EmailJS Public Key</label><input class="fi" id="s-ejs-pubkey" placeholder="xxxxxxxxxxxxxxxx"></div>
-          <div><label class="fl">Your Sender Email (must match EmailJS)</label><input class="fi" id="s-sender-email" type="email" placeholder="you@gmail.com"></div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-title">Database Connection</div>
-        <p style="font-size:.82rem;color:var(--muted);margin-bottom:5px;">Connected to: <strong id="sb-url-display" style="color:var(--accent);"></strong></p>
-        <p style="font-size:.79rem;color:var(--dim);margin-bottom:14px;">Your data is stored securely in Supabase and syncs across all your devices.</p>
-        <button class="btn btn-d btn-sm" onclick="disconnectDB()">Disconnect / Change Database</button>
       </div>
     </div>
 
@@ -544,6 +579,63 @@ a{color:var(--accent);text-decoration:none;}
       <button class="btn btn-y" id="send-email-btn" onclick="sendEmail()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>Send Email
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- CREATE PASSWORD MODAL -->
+<div class="overlay" id="create-pwd-modal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title">🔐 Create Password</div>
+    <p style="font-size:.84rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">This password protects your Email and Database settings. Store it safely — you will need your business email to reset it if forgotten.</p>
+    <div class="fr"><div><label class="fl">New Password</label><input class="fi" id="cp-pwd1" type="password" placeholder="Enter new password"></div></div>
+    <div class="fr"><div><label class="fl">Confirm Password</label><input class="fi" id="cp-pwd2" type="password" placeholder="Confirm new password" onkeydown="if(event.key==='Enter')doCreatePwd()"></div></div>
+    <div id="cp-err" style="color:var(--red);font-size:0.78rem;margin-top:4px;display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-s" onclick="closeOverlay('create-pwd-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="doCreatePwd()">Create Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- CHANGE PASSWORD MODAL -->
+<div class="overlay" id="change-pwd-modal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-title">🔑 Change Password</div>
+    <div class="fr"><div><label class="fl">Current Password</label><input class="fi" id="chp-old" type="password" placeholder="Current password"></div></div>
+    <div class="fr"><div><label class="fl">New Password</label><input class="fi" id="chp-new1" type="password" placeholder="New password"></div></div>
+    <div class="fr"><div><label class="fl">Confirm New Password</label><input class="fi" id="chp-new2" type="password" placeholder="Confirm new password" onkeydown="if(event.key==='Enter')doChangePwd()"></div></div>
+    <div id="chp-err" style="color:var(--red);font-size:0.78rem;margin-top:4px;display:none;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-s" onclick="closeOverlay('change-pwd-modal')">Cancel</button>
+      <button class="btn btn-p" onclick="doChangePwd()">Change Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- FORGOT PASSWORD MODAL -->
+<div class="overlay" id="forgot-pwd-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-title">📧 Reset Password</div>
+    <div id="fp-step1">
+      <p style="font-size:.84rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">A 6-digit verification code will be sent to your business email: <strong id="fp-email-display" style="color:var(--accent);"></strong></p>
+      <div id="fp-err1" style="color:var(--red);font-size:0.78rem;margin-bottom:10px;display:none;"></div>
+      <div class="modal-actions" style="margin-top:0;padding-top:0;border-top:none;">
+        <button class="btn btn-s" onclick="closeOverlay('forgot-pwd-modal')">Cancel</button>
+        <button class="btn btn-p" id="fp-send-btn" onclick="sendOtp()">Send Code</button>
+      </div>
+    </div>
+    <div id="fp-step2" style="display:none;">
+      <p style="font-size:.84rem;color:var(--muted);margin-bottom:16px;line-height:1.6;">Enter the 6-digit code sent to your email and choose a new password.</p>
+      <div class="fr"><div><label class="fl">Verification Code</label><input class="fi" id="fp-otp" placeholder="Enter 6-digit code" maxlength="6" style="letter-spacing:.2em;font-size:1.1rem;text-align:center;"></div></div>
+      <div class="fr"><div><label class="fl">New Password</label><input class="fi" id="fp-newpwd1" type="password" placeholder="New password"></div></div>
+      <div class="fr"><div><label class="fl">Confirm New Password</label><input class="fi" id="fp-newpwd2" type="password" placeholder="Confirm new password" onkeydown="if(event.key==='Enter')doResetPwd()"></div></div>
+      <div id="fp-err2" style="color:var(--red);font-size:0.78rem;margin-top:4px;display:none;"></div>
+      <div class="modal-actions">
+        <button class="btn btn-s" onclick="closeOverlay('forgot-pwd-modal')">Cancel</button>
+        <button class="btn btn-s btn-sm" onclick="sendOtp()">Resend Code</button>
+        <button class="btn btn-p" onclick="doResetPwd()">Reset Password</button>
+      </div>
     </div>
   </div>
 </div>
@@ -712,7 +804,10 @@ const CURRENCIES = [
    STATE
 ═══════════════════════════════════════════════ */
 let sb = null;
-let settings = { businessName:'Studio Sahansa', email:'', phone:'', website:'', address:'', prefix:'INV', defaultCurrency:'LKR', taxRate:0, bankDetails:'', footerNote:'Thank you for choosing Studio Sahansa!', nextNum:100, ejsServiceId:'', ejsTemplateId:'', ejsPublicKey:'', senderEmail:'' };
+let settings = { businessName:'Studio Sahansa', email:'', phone:'', website:'', address:'', prefix:'INV', defaultCurrency:'LKR', taxRate:0, bankDetails:'', footerNote:'Thank you for choosing Studio Sahansa!', nextNum:100, ejsServiceId:'', ejsTemplateId:'', ejsPublicKey:'', senderEmail:'', passwordHash:'' };
+let settingsUnlocked = false;
+let pendingOtp = null;
+let pendingOtpExpiry = null;
 let items = [];
 let curViewId = null;
 let curInvData = null;
@@ -831,7 +926,8 @@ async function loadSettings() {
         footerNote:data.footer_note||'Thank you for choosing Studio Sahansa!',
         nextNum:data.next_num!=null?data.next_num:100,
         ejsServiceId:data.emailjs_service_id||'', ejsTemplateId:data.emailjs_template_id||'',
-        ejsPublicKey:data.emailjs_public_key||'', senderEmail:data.sender_email||''
+        ejsPublicKey:data.emailjs_public_key||'', senderEmail:data.sender_email||'',
+        passwordHash:data.settings_password_hash||''
       };
     } else {
       await sb.from('settings').insert([{id:1,business_name:'Studio Sahansa',prefix:'INV',tax_rate:0,next_num:100,default_currency:'LKR'}]);
@@ -1551,17 +1647,62 @@ function loadSettingsPage(){
   document.getElementById('s-tax').value=s.taxRate||0;
   document.getElementById('s-bank').value=s.bankDetails||'';
   document.getElementById('s-footer').value=s.footerNote||'Thank you for choosing Studio Sahansa!';
-  document.getElementById('s-ejs-service').value=s.ejsServiceId||'';
-  document.getElementById('s-ejs-template').value=s.ejsTemplateId||'';
-  document.getElementById('s-ejs-pubkey').value=s.ejsPublicKey||'';
-  document.getElementById('s-sender-email').value=s.senderEmail||'';
-  // Show EmailJS status
-  const st=document.getElementById('ejs-status');
-  if(s.ejsPublicKey&&s.ejsServiceId&&s.ejsTemplateId){
-    st.className='email-status ok'; st.textContent='✅ EmailJS is configured — you can send invoices by email.';
+  // Handle lock gate
+  refreshLockGate();
+  if(settingsUnlocked) populateProtectedFields();
+}
+
+function refreshLockGate(){
+  const hasPassword = !!settings.passwordHash;
+  const locked   = document.getElementById('settings-locked-ui');
+  const unlocked = document.getElementById('settings-unlocked-ui');
+  const noPwdUi  = document.getElementById('s-no-pwd-ui');
+  const forgotBtn= document.querySelector('#settings-locked-ui .btn-s.btn-sm');
+  if(settingsUnlocked){
+    locked.style.display='none'; unlocked.style.display='block';
+    populateProtectedFields();
   } else {
-    st.className='email-status warn'; st.textContent='⚠️ EmailJS not configured. Fill in the fields below to enable sending invoices by email.';
+    locked.style.display='block'; unlocked.style.display='none';
+    document.getElementById('s-unlock-pwd').value='';
+    document.getElementById('s-unlock-err').style.display='none';
+    // If no password set, show "create password" prompt instead of unlock
+    if(!hasPassword){
+      document.getElementById('s-no-pwd-ui').style.display='block';
+      if(forgotBtn) forgotBtn.style.display='none';
+    } else {
+      document.getElementById('s-no-pwd-ui').style.display='none';
+      if(forgotBtn) forgotBtn.style.display='';
+    }
   }
+}
+
+function populateProtectedFields(){
+  const s=settings;
+  const eid = document.getElementById('s-ejs-service');
+  if(eid){ eid.value=s.ejsServiceId||''; }
+  const tid = document.getElementById('s-ejs-template');
+  if(tid){ tid.value=s.ejsTemplateId||''; }
+  const pid = document.getElementById('s-ejs-pubkey');
+  if(pid){ pid.value=s.ejsPublicKey||''; }
+  const sid = document.getElementById('s-sender-email');
+  if(sid){ sid.value=s.senderEmail||''; }
+  const url = localStorage.getItem('sb_url')||'';
+  const disp = document.getElementById('sb-url-display');
+  if(disp) disp.textContent=url.replace('https://','').split('.')[0]+'.supabase.co';
+  // EmailJS status
+  const st=document.getElementById('ejs-status');
+  if(st){
+    if(s.ejsPublicKey&&s.ejsServiceId&&s.ejsTemplateId){
+      st.className='email-status ok'; st.textContent='✅ EmailJS is configured — you can send invoices by email.';
+    } else {
+      st.className='email-status warn'; st.textContent='⚠️ EmailJS not configured. Fill in the fields below to enable sending invoices by email.';
+    }
+  }
+}
+
+function lockSettings(){
+  settingsUnlocked=false;
+  refreshLockGate();
 }
 
 async function saveSettings(){
@@ -1580,16 +1721,177 @@ async function saveSettings(){
       bank_details:document.getElementById('s-bank').value.trim(),
       footer_note:document.getElementById('s-footer').value.trim(),
       next_num:settings.nextNum||100,
-      emailjs_service_id:document.getElementById('s-ejs-service').value.trim(),
-      emailjs_template_id:document.getElementById('s-ejs-template').value.trim(),
-      emailjs_public_key:document.getElementById('s-ejs-pubkey').value.trim(),
-      sender_email:document.getElementById('s-sender-email').value.trim()
+      emailjs_service_id: settingsUnlocked ? document.getElementById('s-ejs-service').value.trim() : (settings.ejsServiceId||''),
+      emailjs_template_id: settingsUnlocked ? document.getElementById('s-ejs-template').value.trim() : (settings.ejsTemplateId||''),
+      emailjs_public_key: settingsUnlocked ? document.getElementById('s-ejs-pubkey').value.trim() : (settings.ejsPublicKey||''),
+      sender_email: settingsUnlocked ? document.getElementById('s-sender-email').value.trim() : (settings.senderEmail||''),
+      settings_password_hash: settings.passwordHash||null
     };
     const{error}=await sb.from('settings').upsert([row]);if(error)throw error;
     await loadSettings(); loadSettingsPage();
     toast('Settings saved!','success');
   }catch(e){toast('Error: '+e.message,'error');}
   btn.disabled=false;btn.textContent='Save Settings';
+}
+
+/* ═══════════════════════════════════════════════
+   PASSWORD / SECURITY
+═══════════════════════════════════════════════ */
+async function sha256(str){
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+async function unlockSettings(){
+  const pwd = document.getElementById('s-unlock-pwd').value;
+  const errEl = document.getElementById('s-unlock-err');
+  errEl.style.display='none';
+  if(!pwd){ errEl.textContent='Please enter your password.'; errEl.style.display='block'; return; }
+  const hash = await sha256(pwd);
+  if(hash !== settings.passwordHash){
+    errEl.textContent='Incorrect password. Try again.'; errEl.style.display='block';
+    document.getElementById('s-unlock-pwd').value='';
+    return;
+  }
+  settingsUnlocked=true;
+  refreshLockGate();
+  toast('Settings unlocked ✓','success');
+}
+
+function openCreatePwd(){
+  document.getElementById('cp-pwd1').value='';
+  document.getElementById('cp-pwd2').value='';
+  document.getElementById('cp-err').style.display='none';
+  openOverlay('create-pwd-modal');
+}
+
+async function doCreatePwd(){
+  const p1 = document.getElementById('cp-pwd1').value;
+  const p2 = document.getElementById('cp-pwd2').value;
+  const errEl = document.getElementById('cp-err');
+  errEl.style.display='none';
+  if(!p1||p1.length<6){ errEl.textContent='Password must be at least 6 characters.'; errEl.style.display='block'; return; }
+  if(p1!==p2){ errEl.textContent='Passwords do not match.'; errEl.style.display='block'; return; }
+  try{
+    const hash = await sha256(p1);
+    const{error}=await sb.from('settings').update({settings_password_hash:hash}).eq('id',1);
+    if(error) throw error;
+    settings.passwordHash=hash;
+    settingsUnlocked=true;
+    closeOverlay('create-pwd-modal');
+    refreshLockGate();
+    toast('Password created! Settings are now protected ✓','success');
+  }catch(e){ errEl.textContent='Error: '+e.message; errEl.style.display='block'; }
+}
+
+function openChangePwd(){
+  document.getElementById('chp-old').value='';
+  document.getElementById('chp-new1').value='';
+  document.getElementById('chp-new2').value='';
+  document.getElementById('chp-err').style.display='none';
+  openOverlay('change-pwd-modal');
+}
+
+async function doChangePwd(){
+  const oldPwd = document.getElementById('chp-old').value;
+  const newP1  = document.getElementById('chp-new1').value;
+  const newP2  = document.getElementById('chp-new2').value;
+  const errEl  = document.getElementById('chp-err');
+  errEl.style.display='none';
+  const oldHash = await sha256(oldPwd);
+  if(oldHash!==settings.passwordHash){ errEl.textContent='Current password is incorrect.'; errEl.style.display='block'; return; }
+  if(!newP1||newP1.length<6){ errEl.textContent='New password must be at least 6 characters.'; errEl.style.display='block'; return; }
+  if(newP1!==newP2){ errEl.textContent='New passwords do not match.'; errEl.style.display='block'; return; }
+  try{
+    const newHash=await sha256(newP1);
+    const{error}=await sb.from('settings').update({settings_password_hash:newHash}).eq('id',1);
+    if(error) throw error;
+    settings.passwordHash=newHash;
+    closeOverlay('change-pwd-modal');
+    toast('Password changed successfully ✓','success');
+  }catch(e){ errEl.textContent='Error: '+e.message; errEl.style.display='block'; }
+}
+
+function openForgotPwd(){
+  const email = settings.email;
+  if(!email){ toast('No business email set in Settings — cannot send reset code.','error'); return; }
+  if(!settings.ejsPublicKey||!settings.ejsServiceId||!settings.ejsTemplateId){
+    toast('EmailJS must be configured to use password reset. Please contact support.','error'); return;
+  }
+  document.getElementById('fp-email-display').textContent=email;
+  document.getElementById('fp-step1').style.display='block';
+  document.getElementById('fp-step2').style.display='none';
+  document.getElementById('fp-err1').style.display='none';
+  openOverlay('forgot-pwd-modal');
+}
+
+async function sendOtp(){
+  const btn=document.getElementById('fp-send-btn');
+  const errEl=document.getElementById('fp-err1');
+  errEl.style.display='none';
+  btn.disabled=true; btn.textContent='Sending...';
+  try{
+    // Generate 6-digit OTP
+    pendingOtp=String(Math.floor(100000+Math.random()*900000));
+    pendingOtpExpiry=Date.now()+(10*60*1000); // 10 min expiry
+    const email=settings.email;
+    const otpHtml=`
+<div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;border-radius:12px;overflow:hidden;border:1px solid #e5e7eb;">
+  <div style="background:#1e3a8a;padding:24px 28px;">
+    <div style="font-size:20px;font-weight:700;color:#fff;">Studio Sahansa</div>
+    <div style="font-size:13px;color:rgba(255,255,255,.7);margin-top:4px;">Settings Password Reset</div>
+  </div>
+  <div style="padding:28px;">
+    <p style="color:#374151;font-size:14px;margin-bottom:20px;">You requested a password reset for your Studio Sahansa Invoice Manager settings. Use the code below:</p>
+    <div style="background:#f1f5f9;border-radius:10px;padding:20px;text-align:center;margin-bottom:20px;">
+      <div style="font-size:36px;font-weight:700;color:#1e3a8a;letter-spacing:.3em;">${pendingOtp}</div>
+      <div style="font-size:12px;color:#94a3b8;margin-top:8px;">Valid for 10 minutes</div>
+    </div>
+    <p style="color:#6b7280;font-size:13px;">If you did not request this, you can ignore this email.</p>
+  </div>
+</div>`;
+    await emailjs.send(settings.ejsServiceId, settings.ejsTemplateId,{
+      to_email:email, to_name:'Studio Sahansa Owner',
+      from_name:'Studio Sahansa', from_email:settings.senderEmail||email,
+      subject:'Your Settings Reset Code — Studio Sahansa',
+      invoice_html:otpHtml, message:''
+    });
+    document.getElementById('fp-step1').style.display='none';
+    document.getElementById('fp-step2').style.display='block';
+    document.getElementById('fp-otp').value='';
+    document.getElementById('fp-newpwd1').value='';
+    document.getElementById('fp-newpwd2').value='';
+    document.getElementById('fp-err2').style.display='none';
+    toast('Code sent to '+email,'success');
+  }catch(e){
+    errEl.textContent='Failed to send: '+(e.text||e.message||'Check EmailJS settings.');
+    errEl.style.display='block';
+  }
+  btn.disabled=false; btn.textContent='Send Code';
+}
+
+async function doResetPwd(){
+  const otp  = document.getElementById('fp-otp').value.trim();
+  const p1   = document.getElementById('fp-newpwd1').value;
+  const p2   = document.getElementById('fp-newpwd2').value;
+  const errEl= document.getElementById('fp-err2');
+  errEl.style.display='none';
+  if(!pendingOtp){ errEl.textContent='No code was sent. Click "Resend Code" first.'; errEl.style.display='block'; return; }
+  if(Date.now()>pendingOtpExpiry){ errEl.textContent='Code expired. Click "Resend Code" to get a new one.'; errEl.style.display='block'; pendingOtp=null; return; }
+  if(otp!==pendingOtp){ errEl.textContent='Incorrect code. Please check and try again.'; errEl.style.display='block'; return; }
+  if(!p1||p1.length<6){ errEl.textContent='New password must be at least 6 characters.'; errEl.style.display='block'; return; }
+  if(p1!==p2){ errEl.textContent='Passwords do not match.'; errEl.style.display='block'; return; }
+  try{
+    const newHash=await sha256(p1);
+    const{error}=await sb.from('settings').update({settings_password_hash:newHash}).eq('id',1);
+    if(error) throw error;
+    settings.passwordHash=newHash;
+    pendingOtp=null; pendingOtpExpiry=null;
+    settingsUnlocked=true;
+    closeOverlay('forgot-pwd-modal');
+    refreshLockGate();
+    toast('Password reset successfully ✓','success');
+  }catch(e){ errEl.textContent='Error: '+e.message; errEl.style.display='block'; }
 }
 
 /* ═══════════════════════════════════════════════
