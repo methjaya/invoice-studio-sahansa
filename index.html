@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Studio Sahansa - Invoice Manager</title>
+<title>Studio Sahansa — Invoice Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -50,6 +50,22 @@ a{color:var(--accent);text-decoration:none;}
   .inv-layout{grid-template-columns:1fr!important;}
   .cols6{grid-template-columns:1.4fr 50px 50px 78px 68px 30px!important;}
   .ph h2{font-size:1.35rem;}
+
+  /* ── Card-style tables on mobile ── */
+  .tw{overflow-x:unset;border-radius:10px;}
+  .tw table{min-width:unset;}
+  .tw thead{display:none;}
+  .tw tbody tr{display:flex;flex-direction:column;padding:12px 14px;border-bottom:1px solid var(--border);position:relative;}
+  .tw tbody tr:last-child{border-bottom:none;}
+  .tw tbody tr:hover td{background:transparent;}
+  .tw tbody td{padding:0;border-bottom:none;font-size:0.84rem;line-height:1.55;}
+  .tw tbody td:before{content:attr(data-label);font-size:0.67rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:block;margin-bottom:2px;margin-top:6px;}
+  .tw tbody td:first-child{margin-top:0;}
+  .tw tbody td:first-child:before{display:none;}
+  .tw tbody td.td-actions{margin-top:10px;}
+  .tw tbody td.td-actions:before{display:none;}
+  .td-actions .btn-row{flex-wrap:wrap;gap:6px;}
+  .td-primary{font-weight:600;font-size:0.9rem;color:var(--accent);}
 }
 /* Mobile bottom tab bar — hidden on desktop */
 .mobile-nav{
@@ -882,12 +898,10 @@ async function renderDash() {
     tb.innerHTML = rec.map(i => {
       const cur = getCurrencyByCode(i.currency||'LKR');
       return `<tr style="cursor:pointer" onclick="viewInv('${i.id}')">
-        <td style="color:var(--accent);font-weight:600;">${i.invoice_number}</td>
-        <td>${i.customer_name}${i.customer_company?`<br><span style="font-size:.72rem;color:var(--muted)">${i.customer_company}</span>`:''}</td>
-        <td>${fmtDate(i.date)}</td>
-        <td style="font-weight:600;">${fmt(i.total, cur.symbol)}</td>
-        <td><span style="font-size:.75rem;font-weight:600;color:var(--muted);">${i.currency||'LKR'}</span></td>
-        <td><span class="badge badge-${i.status}">${cap(i.status)}</span></td>
+        <td class="td-primary">${i.invoice_number}<span style="font-weight:400;color:var(--muted);font-size:.8rem;display:block;">${i.customer_name}${i.customer_company?' · '+i.customer_company:''}</span></td>
+        <td data-label="Date">${fmtDate(i.date)}</td>
+        <td data-label="Amount" style="font-weight:600;">${fmt(i.total, cur.symbol)} <span style="font-size:.72rem;color:var(--muted);font-weight:400;">${i.currency||'LKR'}</span></td>
+        <td data-label="Status"><span class="badge badge-${i.status}">${cap(i.status)}</span></td>
       </tr>`;
     }).join('');
   } catch(e) { toast('Dashboard error: '+e.message,'error'); }
@@ -904,11 +918,10 @@ async function renderCusts() {
     cachedCusts = data||[];
     if (!cachedCusts.length) { tb.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">👤</div><h3>No customers yet</h3><p>Add your first customer — then select them quickly when creating invoices</p></div></td></tr>`; return; }
     tb.innerHTML = cachedCusts.map(c=>`<tr>
-      <td style="font-weight:500;">${c.name}</td>
-      <td style="color:var(--muted)">${c.company||'—'}</td>
-      <td style="color:var(--muted)">${c.email||'—'}</td>
-      <td style="color:var(--muted)">${c.phone||'—'}</td>
-      <td><div class="btn-row">
+      <td class="td-primary" data-label="Name">${c.name}${c.company?`<span style="font-weight:400;color:var(--muted);font-size:.8rem;display:block;">${c.company}</span>`:''}</td>
+      <td data-label="Email" style="color:var(--muted)">${c.email||'—'}</td>
+      <td data-label="Phone" style="color:var(--muted)">${c.phone||'—'}</td>
+      <td class="td-actions"><div class="btn-row">
         <button class="btn btn-s btn-xs" onclick="openCustModal('${c.id}')">Edit</button>
         <button class="btn btn-d btn-xs" onclick="delCust('${c.id}')">Delete</button>
       </div></td></tr>`).join('');
@@ -1001,11 +1014,10 @@ async function renderSvcs() {
     cachedSvcs=data||[];
     if(!cachedSvcs.length){tb.innerHTML=`<tr><td colspan="5"><div class="empty"><div class="empty-icon">✨</div><h3>No services yet</h3><p>Add your voice over services here</p></div></td></tr>`;return;}
     tb.innerHTML=cachedSvcs.map(s=>`<tr>
-      <td style="font-weight:500;">${s.name}</td>
-      <td style="color:var(--muted)">${s.description||'—'}</td>
-      <td style="color:var(--muted)">${s.unit||'—'}</td>
-      <td style="color:var(--accent);font-weight:600;">${s.rate?s.rate.toLocaleString():'—'}</td>
-      <td><div class="btn-row">
+      <td class="td-primary" data-label="Service">${s.name}${s.description?`<span style="font-weight:400;color:var(--muted);font-size:.8rem;display:block;">${s.description}</span>`:''}</td>
+      <td data-label="Unit" style="color:var(--muted)">${s.unit||'—'}</td>
+      <td data-label="Default Rate" style="color:var(--accent);font-weight:600;">${s.rate?s.rate.toLocaleString():'—'}</td>
+      <td class="td-actions"><div class="btn-row">
         <button class="btn btn-s btn-xs" onclick="openSvcModal('${s.id}')">Edit</button>
         <button class="btn btn-d btn-xs" onclick="delSvc('${s.id}')">Delete</button>
       </div></td></tr>`).join('');
@@ -1043,17 +1055,16 @@ async function renderInvs() {
     tb.innerHTML=invs.map(i=>{
       const cur=getCurrencyByCode(i.currency||'LKR');
       return `<tr>
-        <td style="color:var(--accent);font-weight:600;cursor:pointer" onclick="viewInv('${i.id}')">${i.invoice_number}</td>
-        <td>${i.customer_name}${i.customer_company?`<br><span style="font-size:.72rem;color:var(--muted)">${i.customer_company}</span>`:''}</td>
-        <td>${fmtDate(i.date)}</td><td>${i.due_date?fmtDate(i.due_date):'—'}</td>
-        <td style="font-weight:600;">${fmt(i.total,cur.symbol)} <span style="font-size:.72rem;color:var(--muted);font-weight:400;">${i.currency||'LKR'}</span></td>
-        <td><select class="fs" style="padding:4px 8px;font-size:.77rem;border-radius:6px;" onchange="setStatus('${i.id}',this.value)">
+        <td class="td-primary" onclick="viewInv('${i.id}')" style="cursor:pointer">${i.invoice_number}<span style="font-weight:400;color:var(--muted);font-size:.8rem;display:block;">${i.customer_name}${i.customer_company?' · '+i.customer_company:''}</span></td>
+        <td data-label="Date">${fmtDate(i.date)}${i.due_date?`<span style="color:var(--muted);font-size:.8rem;display:block;">Due: ${fmtDate(i.due_date)}</span>`:''}</td>
+        <td data-label="Amount" style="font-weight:600;">${fmt(i.total,cur.symbol)} <span style="font-size:.72rem;color:var(--muted);font-weight:400;">${i.currency||'LKR'}</span></td>
+        <td data-label="Status"><select class="fs" style="padding:4px 8px;font-size:.77rem;border-radius:6px;" onchange="setStatus('${i.id}',this.value)">
           <option value="draft"   ${i.status==='draft'   ?'selected':''}>Draft</option>
           <option value="pending" ${i.status==='pending' ?'selected':''}>Pending</option>
           <option value="paid"    ${i.status==='paid'    ?'selected':''}>Paid</option>
           <option value="overdue" ${i.status==='overdue' ?'selected':''}>Overdue</option>
         </select></td>
-        <td><div class="btn-row">
+        <td class="td-actions"><div class="btn-row">
           <button class="btn btn-s btn-xs" onclick="viewInv('${i.id}')">View</button>
           <button class="btn btn-g btn-xs" onclick="printById('${i.id}')">Print</button>
           <button class="btn btn-d btn-xs" onclick="delInv('${i.id}')">Del</button>
