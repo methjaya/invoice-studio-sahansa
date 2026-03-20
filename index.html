@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Studio Sahansa - Invoice Manager</title>
+<title>Studio Sahansa — Invoice Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -821,8 +821,8 @@ const CURRENCIES = [
 ═══════════════════════════════════════════════ */
 // ── Supabase credentials — filled in automatically on first connect ──
 // These make the public invoice link work for anyone (even without logging in)
-let SUPABASE_URL = localStorage.getItem('sb_url') || 'https://ytdxkforslmtjiopfqcs.supabase.co/';
-let SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0ZHhrZm9yc2xtdGppb3BmcWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MDQwNzAsImV4cCI6MjA4OTQ4MDA3MH0.Xj5xMZLKVIbVANzBzkgVW098F3SjerLn8pv5Ej5-Kd4';
+let SUPABASE_URL = localStorage.getItem('sb_url') || '';
+let SUPABASE_KEY = localStorage.getItem('sb_key') || '';
 
 let sb = null;
 let settings = { businessName:'Studio Sahansa', email:'', phone:'', website:'', address:'', prefix:'INV', defaultCurrency:'LKR', taxRate:0, bankDetails:'', footerNote:'Thank you for choosing Studio Sahansa!', nextNum:100, ejsServiceId:'', ejsTemplateId:'', ejsPublicKey:'', senderEmail:'', passwordHash:'' };
