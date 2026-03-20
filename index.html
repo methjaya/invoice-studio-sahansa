@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Studio Sahansa — Invoice Manager</title>
+<title>Studio Sahansa - Invoice Manager</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
@@ -821,8 +821,8 @@ const CURRENCIES = [
 ═══════════════════════════════════════════════ */
 // ── Supabase credentials — filled in automatically on first connect ──
 // These make the public invoice link work for anyone (even without logging in)
-let SUPABASE_URL = localStorage.getItem('sb_url') || 'https://ytdxkforslmtjiopfqcs.supabase.co/';
-let SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0ZHhrZm9yc2xtdGppb3BmcWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MDQwNzAsImV4cCI6MjA4OTQ4MDA3MH0.Xj5xMZLKVIbVANzBzkgVW098F3SjerLn8pv5Ej5-Kd4';
+let SUPABASE_URL = localStorage.getItem('sb_url') || '';
+let SUPABASE_KEY = localStorage.getItem('sb_key') || '';
 
 let sb = null;
 let settings = { businessName:'Studio Sahansa', email:'', phone:'', website:'', address:'', prefix:'INV', defaultCurrency:'LKR', taxRate:0, bankDetails:'', footerNote:'Thank you for choosing Studio Sahansa!', nextNum:100, ejsServiceId:'', ejsTemplateId:'', ejsPublicKey:'', senderEmail:'', passwordHash:'' };
@@ -879,18 +879,26 @@ applyTheme(localStorage.getItem('ss_theme') || 'dark');
    BOOT
 ═══════════════════════════════════════════════ */
 async function init() {
-  const url = localStorage.getItem('sb_url'), key = localStorage.getItem('sb_key');
-  if (url && key) {
-    try {
+  try {
+    const url = localStorage.getItem('sb_url');
+    const key = localStorage.getItem('sb_key');
+    if (url && key) {
       sb = supabase.createClient(url, key);
-      const { error } = await sb.from('settings').select('id').limit(1);
+      // 10 second connection timeout
+      const timeoutPromise = new Promise((_,reject) => setTimeout(()=>reject(new Error('Connection timed out')), 10000));
+      const queryPromise = sb.from('settings').select('id').limit(1);
+      const { error } = await Promise.race([queryPromise, timeoutPromise]);
       if (error) throw error;
-      await loadSettings(); showApp();
-    } catch(e) {
-      localStorage.removeItem('sb_url'); localStorage.removeItem('sb_key');
-      showSetup('Could not connect: ' + e.message);
+      await loadSettings();
+      showApp();
+    } else {
+      showSetup();
     }
-  } else showSetup();
+  } catch(e) {
+    localStorage.removeItem('sb_url');
+    localStorage.removeItem('sb_key');
+    showSetup('Could not connect: ' + e.message);
+  }
 }
 
 async function connectSupabase() {
@@ -1927,8 +1935,7 @@ async function loadPublicInvoice(id) {
     const cur = inv.currency || 'LKR';
     const statusColors = { paid:'#166534,#dcfce7', pending:'#1e40af,#dbeafe', draft:'#374151,#f3f4f6', overdue:'#991b1b,#fee2e2' };
     const [scol, sbg] = (statusColors[inv.status] || statusColors.draft).split(',');
-    const bizLines = [s.address ? s.address.replace(/
-/g,', ') : '', s.phone, s.email, s.website].filter(Boolean);
+    const bizLines = [s.address ? s.address.replace(/\n/g,', ') : '', s.phone, s.email, s.website].filter(Boolean);
 
     document.getElementById('public-loading').style.display = 'none';
     document.getElementById('public-invoice-content').style.display = 'block';
@@ -1961,8 +1968,7 @@ async function loadPublicInvoice(id) {
           <div style="background:#f8fafc;border-radius:8px;padding:14px 18px;margin-bottom:20px;border:1px solid #e2e8f0;">
             <div style="font-size:9px;text-transform:uppercase;letter-spacing:.1em;color:#94a3b8;margin-bottom:7px;">Bill To</div>
             <div style="font-weight:600;font-size:14px;color:#111827;">${inv.customer_name}${inv.customer_company ? ' <span style="font-weight:400;color:#6b7280;font-size:13px;">&middot; '+inv.customer_company+'</span>' : ''}</div>
-            <div style="font-size:12px;color:#6b7280;margin-top:4px;line-height:1.7;">${[inv.customer_email, inv.customer_phone, inv.customer_address ? inv.customer_address.replace(/
-/g,', ') : ''].filter(Boolean).join('<br>')}</div>
+            <div style="font-size:12px;color:#6b7280;margin-top:4px;line-height:1.7;">${[inv.customer_email, inv.customer_phone, inv.customer_address ? inv.customer_address.replace(/\n/g,', ') : ''].filter(Boolean).join('<br>')}</div>
           </div>
 
           <table style="width:100%;border-collapse:collapse;margin-bottom:18px;">
@@ -2008,18 +2014,30 @@ async function loadPublicInvoice(id) {
   }
 }
 
-// ── Check if this is a public invoice link ──
-(function() {
-  const _urlParams = new URLSearchParams(window.location.search);
-  const _publicInvId = _urlParams.get('invoice');
-  if (_publicInvId) {
-    // Hide the app shell — show only the public invoice page
-    document.getElementById('app').style.display = 'none';
-    loadPublicInvoice(_publicInvId);
+// ── Safety net: ALWAYS hide loading screen after 8 seconds no matter what ──
+setTimeout(() => {
+  const ls = document.getElementById('loading-screen');
+  if (ls && !ls.classList.contains('hidden')) {
+    ls.classList.add('hidden');
+    document.getElementById('setup-screen').classList.remove('hidden');
+  }
+}, 8000);
+
+// ── Boot ──
+try {
+  const _params = new URLSearchParams(window.location.search);
+  const _invId   = _params.get('invoice');
+  if (_invId) {
+    document.getElementById('loading-screen').classList.add('hidden');
+    document.getElementById('public-invoice-page').style.display = 'block';
+    loadPublicInvoice(_invId);
   } else {
     init();
   }
-})();
+} catch(e) {
+  document.getElementById('loading-screen').classList.add('hidden');
+  document.getElementById('setup-screen').classList.remove('hidden');
+}
 </script>
 </body>
 </html>
