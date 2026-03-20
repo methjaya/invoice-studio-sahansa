@@ -819,6 +819,11 @@ const CURRENCIES = [
 /* ═══════════════════════════════════════════════
    STATE
 ═══════════════════════════════════════════════ */
+// ── Supabase credentials — filled in automatically on first connect ──
+// These make the public invoice link work for anyone (even without logging in)
+let SUPABASE_URL = localStorage.getItem('sb_url') || 'https://ytdxkforslmtjiopfqcs.supabase.co/';
+let SUPABASE_KEY = localStorage.getItem('sb_key') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl0ZHhrZm9yc2xtdGppb3BmcWNzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MDQwNzAsImV4cCI6MjA4OTQ4MDA3MH0.Xj5xMZLKVIbVANzBzkgVW098F3SjerLn8pv5Ej5-Kd4';
+
 let sb = null;
 let settings = { businessName:'Studio Sahansa', email:'', phone:'', website:'', address:'', prefix:'INV', defaultCurrency:'LKR', taxRate:0, bankDetails:'', footerNote:'Thank you for choosing Studio Sahansa!', nextNum:100, ejsServiceId:'', ejsTemplateId:'', ejsPublicKey:'', senderEmail:'', passwordHash:'' };
 let settingsUnlocked = false;
@@ -901,6 +906,7 @@ async function connectSupabase() {
     const { error } = await sb.from('settings').select('id').limit(1);
     if (error) throw error;
     localStorage.setItem('sb_url', url); localStorage.setItem('sb_key', key);
+    SUPABASE_URL = url; SUPABASE_KEY = key;
     await loadSettings(); showApp();
   } catch(e) {
     setErr('Connection failed: ' + (e.message || 'Check your URL and key.'));
@@ -1879,16 +1885,29 @@ async function loadPublicInvoice(id) {
   document.getElementById('loading-screen').classList.add('hidden');
   document.getElementById('public-invoice-page').style.display = 'block';
 
-  const url = localStorage.getItem('sb_url');
-  const key = localStorage.getItem('sb_key');
-  if (!url || !key) {
+  // Use embedded constants so ANY visitor (customer) can load the public invoice
+  // SUPABASE_URL and SUPABASE_KEY come from the app owner's localStorage,
+  // which gets baked in when they first connect on their device.
+  // For customers: these are populated via the netlify deploy config below.
+  if (!SUPABASE_URL || !SUPABASE_KEY) {
     document.getElementById('public-loading').style.display = 'none';
-    document.getElementById('public-error').style.display = 'block';
+    const errEl = document.getElementById('public-error');
+    errEl.innerHTML = `
+      <div style="font-size:2.5rem;margin-bottom:12px;">⚙️</div>
+      <div style="font-size:1.1rem;font-weight:600;color:#374151;margin-bottom:8px;">Almost there!</div>
+      <div style="font-size:.85rem;color:#6b7280;line-height:1.7;max-width:360px;margin:0 auto;">
+        To enable public invoice links, add your Supabase credentials to the top of <strong>index.html</strong>:<br><br>
+        <code style="background:#f1f5f9;padding:8px 12px;border-radius:6px;display:block;text-align:left;font-size:.8rem;line-height:1.8;">
+          let SUPABASE_URL = '<em>your-project-url</em>';<br>
+          let SUPABASE_KEY = '<em>your-anon-key</em>';
+        </code>
+      </div>`;
+    errEl.style.display = 'block';
     return;
   }
 
   try {
-    const client = supabase.createClient(url, key);
+    const client = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const [{ data: inv, error: invErr }, { data: stg }] = await Promise.all([
       client.from('invoices').select('*').eq('id', id).single(),
       client.from('settings').select('*').eq('id', 1).maybeSingle()
@@ -1990,13 +2009,17 @@ async function loadPublicInvoice(id) {
 }
 
 // ── Check if this is a public invoice link ──
-const _urlParams = new URLSearchParams(window.location.search);
-const _publicInvId = _urlParams.get('invoice');
-if (_publicInvId) {
-  loadPublicInvoice(_publicInvId);
-} else {
-  init();
-}
+(function() {
+  const _urlParams = new URLSearchParams(window.location.search);
+  const _publicInvId = _urlParams.get('invoice');
+  if (_publicInvId) {
+    // Hide the app shell — show only the public invoice page
+    document.getElementById('app').style.display = 'none';
+    loadPublicInvoice(_publicInvId);
+  } else {
+    init();
+  }
+})();
 </script>
 </body>
 </html>
